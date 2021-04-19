@@ -37,10 +37,10 @@ type Points []Point
 type Point3s []Point3
 
 // Point is a [x,y]
-type Point [2]float32
+type Point [2]float64
 
 // Point is a [x,y,z]
-type Point3 [3]float32
+type Point3 [3]float64
 
 // Mats is a set of Matrix
 type Mats []mat.Matrix
@@ -59,16 +59,26 @@ func Run(data Data) CalibResults {
 	logger.SetOutput(os.Stdout)
 	logger.Info("Calculate homography matrix each boards")
 
-	// 1. Calculate homographies
 	// initialize 3d coordinates of board
 	var xyzPt Point3s
 	for i := 0; i < data.Board.Row; i++ {
 		for j := 0; j < data.Board.Column; j++ {
 			xyzPt = append(xyzPt,
 				Point3{
-					float32(i * data.Board.SquareSize),
-					float32(j * data.Board.SquareSize),
+					float64(i * data.Board.SquareSize),
+					float64(j * data.Board.SquareSize),
 					0})
+		}
+	}
+
+	// 1. Calculate homographies
+	var obj Points
+	for i := 0; i < data.Board.Row; i++ {
+		for j := 0; j < data.Board.Column; j++ {
+			obj = append(obj,
+				Point{
+					float64(i * data.Board.SquareSize),
+					float64(j * data.Board.SquareSize)})
 		}
 	}
 
@@ -77,7 +87,7 @@ func Run(data Data) CalibResults {
 	var homographies []mat.Matrix
 	for i, uvPt := range uvPts {
 		// get each optimized homography matrix
-		homographies = append(homographies, solveH(uvPt, xyzPt))
+		homographies = append(homographies, solveH(uvPt, obj))
 		logger.Info("[%d]Board homography matrix : %v", i, homographies[i])
 	}
 
