@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("How to run:\n\tfind-chessboard [foldername]")
+		fmt.Println("specify filename (.yaml)")
 		return
 	}
 	filename := os.Args[1]
@@ -28,8 +28,9 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Println(data.Board)
 	for i, s := range data.Coordinates {
-		fmt.Printf("point[%v] : %v\n", i, s)
+		fmt.Printf("[%v]board : %v\n", i, s)
 	}
 
 	zcalib.Run(data)

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	_ "bufio"
 	"fmt"
 	"image"
 	"io/ioutil"
@@ -22,6 +22,8 @@ const (
 )
 
 func FindCorner(filename string) (corner []image.Point) {
+	fmt.Println(filename)
+
 	img := gocv.IMRead(filename, gocv.IMReadAnyColor)
 	if img.Empty() {
 		fmt.Printf("Error reading chessboard image (%v)\n", filename)
@@ -78,13 +80,12 @@ func main() {
 	for _, s := range files {
 		corner := FindCorner(folderpath + s.Name())
 		var cord zcalib.Points
-		for i, ss := range corner {
-			fmt.Printf("[%v] : %v\n", i, ss)
+		for _, ss := range corner {
+			//fmt.Printf("[%v] : %v\n", i, ss)
 			cord = append(cord, zcalib.Point{float32(ss.X), float32(ss.Y)})
 		}
-		reader := bufio.NewReader(os.Stdin)
-		reader.ReadString('\n')
-
+		//reader := bufio.NewReader(os.Stdin)
+		//reader.ReadString('\n')
 		cords = append(cords, cord)
 	}
 
@@ -115,4 +116,5 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println("write board_data.yaml file successfully!")
 }
