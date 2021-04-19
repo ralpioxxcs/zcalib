@@ -2,14 +2,22 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	"os"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/ralpioxxcs/zcalib"
 )
 
 func main() {
-	file, err := ioutil.ReadFile("board_data.yaml")
+	if len(os.Args) < 2 {
+		fmt.Println("How to run:\n\tfind-chessboard [foldername]")
+		return
+	}
+	filename := os.Args[1]
+
+	file, err := ioutil.ReadFile(filename)
 	if err != nil {
 		panic(err)
 	}
