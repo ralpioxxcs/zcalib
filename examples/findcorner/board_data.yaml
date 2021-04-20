@@ -2,9 +2,9 @@ board:
   count: 5
   row: 8
   column: 11
-  squareSize: 0.060
-  width: 0.720
-  height: 0.540
+  squareSize: 550
+  width: 1000
+  height: 700
 coordinates:
 - - - 287
     - 182

@@ -82,7 +82,7 @@ func main() {
 		var cord zcalib.Points
 		for _, ss := range corner {
 			//fmt.Printf("[%v] : %v\n", i, ss)
-			cord = append(cord, zcalib.Point{float32(ss.X), float32(ss.Y)})
+			cord = append(cord, zcalib.Point{float64(ss.X), float64(ss.Y)})
 		}
 		//reader := bufio.NewReader(os.Stdin)
 		//reader.ReadString('\n')

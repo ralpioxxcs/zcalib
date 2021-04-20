@@ -13,7 +13,7 @@ func solveE(H mat.Dense, K mat.Dense) *mat.Dense {
 
 	temMat := mat.NewDense(3, 1, nil)
 	temMat.Mul(K_inv, h_col0)
-	lambda := mat.Norm(temMat, 2)
+	//lambda := mat.Norm(temMat, 2)
 
 	var kh0, kh1, kh2 mat.Dense
 	kh0.Mul(K_inv, h_col0)

@@ -5,18 +5,18 @@ import (
 
 	"github.com/sirupsen/logrus"
 	cv "gocv.io/x/gocv"
-	"gonum.org/v1/gonum/mat"
+	_ "gonum.org/v1/gonum/mat"
 )
 
 type Data struct {
 	// Board is general information of checkerboard
 	Board struct {
-		Count      int `yaml:"count"`
-		Row        int `yaml:"row"`
-		Column     int `yaml:"column"`
-		SquareSize int `yaml:"squareSize"`
-		Width      int `yaml:"width"`
-		Height     int `yaml:"height"`
+		Count      int     `yaml:"count"`
+		Row        int     `yaml:"row"`
+		Column     int     `yaml:"column"`
+		SquareSize float64 `yaml:"squareSize"`
+		Width      float64 `yaml:"width"`
+		Height     float64 `yaml:"height"`
 	} `yaml:"board"`
 	Coordinates []Points `yaml:"coordinates"`
 }
@@ -56,57 +56,56 @@ func Run(data Data) CalibResults {
 	logger.Info("Calculate homography matrix each boards")
 
 	// initialize 3d coordinates of board
-	var xyzPt Point3s
-	for i := 0; i < data.Board.Row; i++ {
-		for j := 0; j < data.Board.Column; j++ {
-			xyzPt = append(xyzPt,
-				Point3{
-					float64(i * data.Board.SquareSize),
-					float64(j * data.Board.SquareSize),
-					0})
-		}
-	}
+	//var xyzPt Point3s
+	//for i := 0; i < data.Board.Row; i++ {
+	//  for j := 0; j < data.Board.Column; j++ {
+	//    xyzPt = append(xyzPt,
+	//      Point3{
+	//        float64(j) * data.Board.SquareSize,
+	//        float64(i) * data.Board.SquareSize,
+	//        0})
+	//  }
+	//}
 
-	// 1. Calculate homographies
-	var obj Points
+	obj := []Point{}
+	img := data.Coordinates
 	for i := 0; i < data.Board.Row; i++ {
 		for j := 0; j < data.Board.Column; j++ {
 			obj = append(obj,
 				Point{
-					float64(i * data.Board.SquareSize),
-					float64(j * data.Board.SquareSize)})
+					float64(j) * data.Board.SquareSize,
+					float64(i) * data.Board.SquareSize})
 		}
 	}
 
+	// 1. Calculate homographies
 	logger.Info("Solve H matrix (homography)")
-	uvPts := data.Coordinates
-	var homographies []mat.Dense
+	homographies := []cv.Mat{}
 	// get each optimized homography matrix
-	for i, uvPt := range uvPts {
-		H := solveH(uvPt, obj)
-		homographies = append(homographies, *H)
-
-		fh := mat.Formatted(H, mat.Prefix(""), mat.Squeeze())
-		logger.Infof("[%v]Board homography matrix : \n%v", i, fh)
+	for _, imgPt := range img {
+		H := SolveH(imgPt, obj)
+		CurveFit()
+		//Hopt := RefineH(H, obj, imgPt)
+		homographies = append(homographies, Hopt)
 	}
 
-	// 2. Extract intrisic camera paramter from homography matrix
-	logger.Info("Solve K matrix (camera intrinsic)")
-	K := solveK(homographies)
+	//// 2. Extract intrisic camera paramter from homography matrix
+	//logger.Info("Solve K matrix (camera intrinsic)")
+	//K := solveK(homographies)
 
-	fk := mat.Formatted(K, mat.Prefix(""), mat.Squeeze())
-	logger.Infof("K matrix : \n%v", fk)
+	//fk := mat.Formatted(K, mat.Prefix(""), mat.Squeeze())
+	//logger.Infof("K matrix : \n%v", fk)
 
-	// 3. Calculate extrinsic matrix each board angle
-	logger.Info("Solve E matrix (camera extrinsics)")
-	var extrinsics []mat.Dense
-	for i, h := range homographies {
-		E := solveE(h, *K)
-		extrinsics = append(extrinsics, *E)
+	//// 3. Calculate extrinsic matrix each board angle
+	//logger.Info("Solve E matrix (camera extrinsics)")
+	//var extrinsics []mat.Dense
+	//for i, h := range homographies {
+	//  E := solveE(h, *K)
+	//  extrinsics = append(extrinsics, *E)
 
-		fe := mat.Formatted(E, mat.Prefix(""), mat.Squeeze())
-		logger.Infof("[%v]Board extrinsic matrix : \n%v", i, fe)
-	}
+	//  fe := mat.Formatted(E, mat.Prefix(""), mat.Squeeze())
+	//  logger.Infof("[%v]Board extrinsic matrix : \n%v", i, fe)
+	//}
 
 	// 4. Estimate disotortion coefficients
 	//k1, k2 := estimateLensDistortion(uvPts, xyzPt, K, extrinsics)

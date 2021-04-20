@@ -1,12 +1,14 @@
 package zcalib
 
 import (
-	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/stat"
 	"math"
+
+	cv "gocv.io/x/gocv"
+	_ "gonum.org/v1/gonum/mat"
+	"gonum.org/v1/gonum/stat"
 )
 
-func solveH(img Points, obj Points) *mat.Dense {
+func SolveH(img Points, obj Points) cv.Mat {
 	N := len(obj)
 	logger.Infof("corner size : %v", N)
 
@@ -25,10 +27,10 @@ func solveH(img Points, obj Points) *mat.Dense {
 	normedHomoImgPts := dotProduct(normImgMatrix, homoImgPts)
 
 	// Create M matrix
-	M := mat.NewDense(2*N, 9, nil)
+	M := cv.NewMatWithSize(2*N, 9, cv.MatTypeCV64F)
 	for i := 0; i < N; i++ {
-		row1 := M.RawRowView(i)
-		row2 := M.RawRowView(i + N)
+		row1 := M.RowRange(i, i+1)
+		row2 := M.RowRange(i+N, (i+N)+1)
 
 		data1 := []float64{
 			-(normedHomoObjPts[i][0]),
@@ -51,63 +53,57 @@ func solveH(img Points, obj Points) *mat.Dense {
 			normedHomoImgPts[i][1] * normedHomoObjPts[i][1],
 			normedHomoImgPts[i][1]}
 
-		if len(row1) != len(row2) {
-			logger.Fatalf("row1(%v), row2(%v) size is not equal", len(row1), len(row2))
-		}
-		for i := 0; i < 9; i++ {
-			row1 = append(row1, data1[i])
-			row2 = append(row2, data2[i])
+		for k := 0; k < M.Cols(); k++ {
+			row1.SetDoubleAt(0, k, data1[k])
+			row2.SetDoubleAt(0, k, data2[k])
 		}
 	}
-	//fm := mat.Formatted(M, mat.Prefix(""), mat.Squeeze())
-	//logger.Infof("M matrix :\n%v", fm)
 
 	// SVD(Singular Vector Decomposition)
-	// M     : (2 * len) X 9
-	// U 		 : (2 * len) X (2 * len)
-	// Sigma : (2 * len) X 9
-	// V_t   : 9 X 9
-	logger.Info("Solve SVD")
-	var svd mat.SVD
-	ok := svd.Factorize(M, mat.SVDFull)
-	if !ok {
-		logger.Fatal("failed to factorize M")
-	}
-	// extract SVD
-	m, n := M.Dims()
-	u := mat.NewDense(m, m, nil)
-	vt := mat.NewDense(n, n, nil)
-	//sigma := mat.NewDense(m, n, nil)
-	svd.UTo(u)
-	svd.VTo(vt)
-	s := svd.Values(nil)
-	sminIdx := 0
-	smin := s[sminIdx]
-	for i, v := range s {
-		if smin > v {
-			smin = v
-			sminIdx = i
-		}
-	}
-	H_norm := mat.NewDense(3, 3, vt.RawRowView(sminIdx))
+	// M = U*Sigma*V
+	// M               : (2 * N) X 9
+	// U 		 					 : (2 * N) X (2 * N)
+	// Sigma(diagonal) : 9 X 1
+	// V_t             : 9 X 9
+	r, c := M.Rows(), M.Cols()
+	U := cv.NewMatWithSize(r, r, cv.MatTypeCV64F)
+	Sigma := cv.NewMatWithSize(c, 1, cv.MatTypeCV64F)
+	V_t := cv.NewMatWithSize(c, c, cv.MatTypeCV64F)
+	cv.SVDCompute(M, &Sigma, &U, &V_t)
+
+	ptr, _ := Sigma.DataPtrFloat64()
+	minIdx := minIdx(ptr)
+	H_norm := V_t.RowRange(minIdx, minIdx+1)
+	H_norm = H_norm.Reshape(0, 3)
+	logger.Debugf("homography (normalized) : \n%v", printFormattedMat(H_norm))
 
 	// Denormalize homography matrix
-	var normImgMatrixInv mat.Dense
-	err := normImgMatrixInv.Inverse(normImgMatrix)
-	if err != nil {
-		logger.Fatalf("normImgMatrix is not invertible: %v", err)
-	}
-	var h1, H mat.Dense
-	h1.Mul(&normImgMatrixInv, H_norm)
-	H.Mul(&h1, normObjMatrix)
+	normImgMatrixInv := cv.NewMat()
+	cv.Invert(normImgMatrix, &normImgMatrixInv, cv.SolveDecompositionLu)
+	temp := normImgMatrixInv.MultiplyMatrix(H_norm)
+	H := temp.MultiplyMatrix(normObjMatrix)
+	logger.Debugf("homography matrix : \n%v", printFormattedMat(H))
 
-	return &H
+	return H
 }
 
-func optimize() {
+// RefineH returns refined linear homography matrix
+// using nonlinear least sqaures
+//
+// Args :
+//	H   : 3x3 homography matrix
+//  obj : Nx2 world points
+//  img : Nx2 detected corner points (uv)
+// Return :
+// 	 Refined 3x3 homography matrix
+func RefineH(H cv.Mat, obj []Point, img []Point) cv.Mat {
+	//Hclone := H.Clone()
+	//Hopt := cv.NewMatWithSize(c, 1, cv.MatTypeCV64F)
+
+	return cv.Mat{}
 }
 
-func normalize(pts Points) *mat.Dense {
+func normalize(pts []Point) cv.Mat {
 	var xs = make([]float64, len(pts))
 	var ys = make([]float64, len(pts))
 	for i, s := range pts {
@@ -118,33 +114,41 @@ func normalize(pts Points) *mat.Dense {
 	meanX := stat.Mean(xs, nil)
 	meanY := stat.Mean(ys, nil)
 	varianceX := stat.Variance(xs, nil)
-	varianceY := stat.Mean(ys, nil)
-	sX := math.Sqrt(varianceX)
-	sY := math.Sqrt(varianceY)
+	varianceY := stat.Variance(ys, nil)
+	sX := math.Sqrt(2 / varianceX)
+	sY := math.Sqrt(2 / varianceY)
 
-	normMat := mat.NewDense(3, 3, []float64{
+	logger.Infof("mean X,Y : [%v,%v]", meanX, meanY)
+	logger.Infof("variance X,Y : [%v,%v]", varianceX, varianceY)
+	logger.Infof("sX,sY : [%v,%v]", sX, sY)
+
+	srcElems := []float64{
 		sX, 0.0, -sX * meanX,
 		0.0, sY, -sY * meanY,
 		0.0, 0.0, 1,
-	})
-
-	return normMat
+	}
+	return NewMatWithSizeNElem(3, 3, cv.MatTypeCV64F, srcElems)
 }
 
-func homogeneous(pts Points) Point3s {
-	homoPts := Point3s{}
+func homogeneous(pts Points) []Point3 {
+	homoPts := []Point3{}
 	for _, s := range pts {
 		homoPts = append(homoPts, Point3{s[0], s[1], 1})
 	}
 	return homoPts
 }
 
-func dotProduct(normMat mat.Matrix, homoPts Point3s) Point3s {
-	var ret Point3s
+func dotProduct(normMat cv.Mat, homoPts []Point3) []Point3 {
+	ret := []Point3{}
 	for _, s := range homoPts {
-		lMat := mat.NewDense(1, 3, []float64{s[0], s[1], s[2]})
-		lMat.Mul(lMat, normMat)
-		ret = append(ret, Point3{lMat.At(0, 0), lMat.At(0, 1), lMat.At(0, 2)})
+		lMat := NewMatWithSizeNElem(
+			1, 3, cv.MatTypeCV64F,
+			[]float64{s[0], s[1], s[2]})
+		dotMat := lMat.MultiplyMatrix(normMat.T())
+		ret = append(ret, Point3{
+			dotMat.GetDoubleAt(0, 0),
+			dotMat.GetDoubleAt(0, 1),
+			dotMat.GetDoubleAt(0, 2)})
 	}
 	return ret
 }
