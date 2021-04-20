@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	cv "gocv.io/x/gocv"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -22,12 +23,12 @@ type Data struct {
 
 // CalibResults is set of calibration matrices
 type CalibResults struct {
-	Intrinsic   Mat
-	DistCoeffs  Mat
-	Homography  Mats
-	Extrinsics  Mats
-	Rotation    Mats
-	Translation Mats
+	Intrinsic   cv.Mat
+	DistCoeffs  cv.Mat
+	Homography  []cv.Mat
+	Extrinsics  []cv.Mat
+	Rotation    []cv.Mat
+	Translation []cv.Mat
 }
 
 // Points is a set of Point
@@ -42,12 +43,6 @@ type Point [2]float64
 // Point is a [x,y,z]
 type Point3 [3]float64
 
-// Mats is a set of Matrix
-type Mats []mat.Matrix
-
-// Mat is matrix
-type Mat mat.Matrix
-
 // logger context
 var logger = logrus.New()
 
@@ -57,6 +52,7 @@ func Run(data Data) CalibResults {
 		FullTimestamp: true,
 	})
 	logger.SetOutput(os.Stdout)
+	logger.SetLevel(logrus.DebugLevel)
 	logger.Info("Calculate homography matrix each boards")
 
 	// initialize 3d coordinates of board
@@ -85,32 +81,39 @@ func Run(data Data) CalibResults {
 	logger.Info("Solve H matrix (homography)")
 	uvPts := data.Coordinates
 	var homographies []mat.Dense
+	// get each optimized homography matrix
 	for i, uvPt := range uvPts {
-		// get each optimized homography matrix
-		homographies = append(homographies, solveH(uvPt, obj))
-		fh := mat.Formatted(&homographies[i], mat.Prefix(""), mat.Squeeze())
+		H := solveH(uvPt, obj)
+		homographies = append(homographies, *H)
+
+		fh := mat.Formatted(H, mat.Prefix(""), mat.Squeeze())
 		logger.Infof("[%v]Board homography matrix : \n%v", i, fh)
 	}
 
-	//// 2. Extract intrisic camera paramter from homography matrix
-	//logger.Info("Solve K matrix (camera intrinsic)")
-	//K := solveK(homographies)
-	//logger.Info("K matrix : %v", K)
+	// 2. Extract intrisic camera paramter from homography matrix
+	logger.Info("Solve K matrix (camera intrinsic)")
+	K := solveK(homographies)
 
-	//// 3. Calculate extrinsic matrix each board angle
-	//logger.Info("Solve E matrix (camera extrinsics)")
-	//var extrinsics []mat.Matrix
-	//for i, h := range homographies {
-	//  extrinsics = append(extrinsics, solveE(h, K))
-	//  logger.Info("[%d]Board extrinsic matrix : %v", i, extrinsics[i])
-	//}
+	fk := mat.Formatted(K, mat.Prefix(""), mat.Squeeze())
+	logger.Infof("K matrix : \n%v", fk)
 
-	//// 4. Estimate disotortion coefficients
+	// 3. Calculate extrinsic matrix each board angle
+	logger.Info("Solve E matrix (camera extrinsics)")
+	var extrinsics []mat.Dense
+	for i, h := range homographies {
+		E := solveE(h, *K)
+		extrinsics = append(extrinsics, *E)
+
+		fe := mat.Formatted(E, mat.Prefix(""), mat.Squeeze())
+		logger.Infof("[%v]Board extrinsic matrix : \n%v", i, fe)
+	}
+
+	// 4. Estimate disotortion coefficients
 	//k1, k2 := estimateLensDistortion(uvPts, xyzPt, K, extrinsics)
 	//logger.Info("k1 : %v, k2 : %v", k1, k2)
 
-	//// 5. Refine all parameters
-	////K, extrinsics, k1, k2 = refineAll(uvPts, xyzPt, K, extrinsics, k1, k2)
+	// 5. Refine all parameters
+	//K, extrinsics, k1, k2 = refineAll(uvPts, xyzPt, K, extrinsics, k1, k2)
 
 	return CalibResults{}
 }

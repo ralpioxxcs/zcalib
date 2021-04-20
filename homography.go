@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-func solveH(img Points, obj Points) mat.Dense {
+func solveH(img Points, obj Points) *mat.Dense {
 	N := len(obj)
 	logger.Infof("corner size : %v", N)
 
@@ -97,13 +97,11 @@ func solveH(img Points, obj Points) mat.Dense {
 	if err != nil {
 		logger.Fatalf("normImgMatrix is not invertible: %v", err)
 	}
-	var h1 mat.Dense
+	var h1, H mat.Dense
 	h1.Mul(&normImgMatrixInv, H_norm)
-
-	var H mat.Dense
 	H.Mul(&h1, normObjMatrix)
 
-	return H
+	return &H
 }
 
 func optimize() {
@@ -141,7 +139,7 @@ func homogeneous(pts Points) Point3s {
 	return homoPts
 }
 
-func dotProduct(normMat Mat, homoPts Point3s) Point3s {
+func dotProduct(normMat mat.Matrix, homoPts Point3s) Point3s {
 	var ret Point3s
 	for _, s := range homoPts {
 		lMat := mat.NewDense(1, 3, []float64{s[0], s[1], s[2]})
