@@ -86,7 +86,8 @@ func Run(data Data) CalibResults {
 		H := SolveH(imgPt, obj)
 		CurveFit()
 		//Hopt := RefineH(H, obj, imgPt)
-		homographies = append(homographies, Hopt)
+		//homographies = append(homographies, Hopt)
+		homographies = append(homographies, H)
 	}
 
 	//// 2. Extract intrisic camera paramter from homography matrix

@@ -1,11 +1,12 @@
 package zcalib
 
-// #cgo CXXFLAGS: -I.
-// #cgo CFLAGS: -I.
-// #cgo LDFLAGS: -lopencv_core
-// #include "lm.h"
+/*
+#cgo CFLAGS: -I ${SRCDIR}/c
+#cgo LDFLAGS: -L${SRCDIR}/c -Wl,-rpath=\${SRCDIR}/c -llm
+#include "lm.h"
+*/
 import "C"
 
 func CurveFit() {
-	C.print_test()
+	C.test()
 }
