@@ -28,10 +28,10 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(data.Board)
-	for i, s := range data.Coordinates {
-		fmt.Printf("[%v]board : %v\n", i, s)
-	}
+	//fmt.Println(data.Board)
+	//for i, s := range data.Coordinates {
+	//  fmt.Printf("[%v]board : %v\n", i, s)
+	//}
 
 	zcalib.Run(data)
 }

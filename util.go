@@ -1,5 +1,26 @@
 package zcalib
 
+import "gonum.org/v1/gonum/mat"
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func argmin(v mat.Dense) (int, int) {
+	si, sj := 0, 0
+	for i := 0; i < v.RawMatrix().Rows; i++ {
+		for j := 0; j < v.RawMatrix().Cols; j++ {
+			if v.At(si, sj) > v.At(i, j) {
+				si, sj = i, j
+			}
+		}
+	}
+	return si, sj
+}
+
 //import (
 ////"gonum.org/v1/gonum/stat"
 //)

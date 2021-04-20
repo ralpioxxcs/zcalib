@@ -6,10 +6,9 @@ import (
 	"math"
 )
 
-func solveH(img Points, obj Points) (hmat mat.Matrix) {
-	logger.Info("solveH")
-
-	size := len(obj)
+func solveH(img Points, obj Points) mat.Dense {
+	N := len(obj)
+	logger.Infof("corner size : %v", N)
 
 	if len(img) != len(obj) {
 		logger.Fatalf("uv size != xyz size")
@@ -18,8 +17,6 @@ func solveH(img Points, obj Points) (hmat mat.Matrix) {
 	// Initialize normalized matrix, homogeneous points of uv, xyz points
 	normObjMatrix := normalize(obj)
 	normImgMatrix := normalize(img)
-	//fa := mat.Formatted(normObjMatrix, mat.Prefix(""), mat.Squeeze())
-	//logger.Infof("\n%v", fa)
 	homoObjPts := homogeneous(obj)
 	homoImgPts := homogeneous(img)
 
@@ -28,10 +25,10 @@ func solveH(img Points, obj Points) (hmat mat.Matrix) {
 	normedHomoImgPts := dotProduct(normImgMatrix, homoImgPts)
 
 	// Create M matrix
-	M := mat.NewDense(2*len(obj), 9, nil)
-	for i := 0; i < M.RawMatrix().Rows/2; i++ {
+	M := mat.NewDense(2*N, 9, nil)
+	for i := 0; i < N; i++ {
 		row1 := M.RawRowView(i)
-		row2 := M.RawRowView(i + size)
+		row2 := M.RawRowView(i + N)
 
 		data1 := []float64{
 			-(normedHomoObjPts[i][0]),
@@ -57,50 +54,62 @@ func solveH(img Points, obj Points) (hmat mat.Matrix) {
 		if len(row1) != len(row2) {
 			logger.Fatalf("row1(%v), row2(%v) size is not equal", len(row1), len(row2))
 		}
-		for i := 0; i < len(row1); i++ {
+		for i := 0; i < 9; i++ {
 			row1 = append(row1, data1[i])
 			row2 = append(row2, data2[i])
 		}
 	}
+	//fm := mat.Formatted(M, mat.Prefix(""), mat.Squeeze())
+	//logger.Infof("M matrix :\n%v", fm)
 
 	// SVD(Singular Vector Decomposition)
+	// M     : (2 * len) X 9
+	// U 		 : (2 * len) X (2 * len)
+	// Sigma : (2 * len) X 9
+	// V_t   : 9 X 9
 	logger.Info("Solve SVD")
-
 	var svd mat.SVD
 	ok := svd.Factorize(M, mat.SVDFull)
 	if !ok {
-		logger.Fatal("failed to factorize A")
+		logger.Fatal("failed to factorize M")
 	}
+	// extract SVD
+	m, n := M.Dims()
+	u := mat.NewDense(m, m, nil)
+	vt := mat.NewDense(n, n, nil)
+	//sigma := mat.NewDense(m, n, nil)
+	svd.UTo(u)
+	svd.VTo(vt)
+	s := svd.Values(nil)
+	sminIdx := 0
+	smin := s[sminIdx]
+	for i, v := range s {
+		if smin > v {
+			smin = v
+			sminIdx = i
+		}
+	}
+	H_norm := mat.NewDense(3, 3, vt.RawRowView(sminIdx))
 
-	//APR_LOGGER(GET_LOGGER, TRACE) << "solving SVD";
-	//Mat U(2 * vecSize, 2 * vecSize, CV_64F);
-	//Mat Sigma(9, 9, CV_64F);
-	//Mat V_t(1, 9, CV_64F);
-	//SVD::compute(M, Sigma, U, V_t, SVD::FULL_UV);
-	//double min, max;
-	//int minIdx, maxIdx;
-	//minMaxIdx(Sigma, &min, &max, &minIdx, &maxIdx);
+	// Denormalize homography matrix
+	var normImgMatrixInv mat.Dense
+	err := normImgMatrixInv.Inverse(normImgMatrix)
+	if err != nil {
+		logger.Fatalf("normImgMatrix is not invertible: %v", err)
+	}
+	var h1 mat.Dense
+	h1.Mul(&normImgMatrixInv, H_norm)
 
-	//Mat H_norm = V_t.row(minIdx);
-	//H_norm = H_norm.reshape(0, 3);
-	//APR_LOGGER(GET_LOGGER, DEBUG) << "homography (normalized):\n" << H_norm;
+	var H mat.Dense
+	H.Mul(&h1, normObjMatrix)
 
-	//// 6) 호모그래피 행렬 비정규화
-	//Mat invMat = normImgMatrix.inv();
-	//Mat h1 = invMat * H_norm;
-	//Mat H = h1 * normObjMatrix;
-	//APR_LOGGER(GET_LOGGER, DEBUG) << "homography matrix:\n" << H;
-
-	return mat.NewDense(2, 2, []float64{
-		1, 0,
-		1, 0,
-	})
+	return H
 }
 
 func optimize() {
 }
 
-func normalize(pts Points) Mat {
+func normalize(pts Points) *mat.Dense {
 	var xs = make([]float64, len(pts))
 	var ys = make([]float64, len(pts))
 	for i, s := range pts {
@@ -115,11 +124,13 @@ func normalize(pts Points) Mat {
 	sX := math.Sqrt(varianceX)
 	sY := math.Sqrt(varianceY)
 
-	return mat.NewDense(3, 3, []float64{
+	normMat := mat.NewDense(3, 3, []float64{
 		sX, 0.0, -sX * meanX,
 		0.0, sY, -sY * meanY,
 		0.0, 0.0, 1,
 	})
+
+	return normMat
 }
 
 func homogeneous(pts Points) Point3s {
