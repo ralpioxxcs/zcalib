@@ -3,6 +3,7 @@ package zcalib
 import (
 	"os"
 
+	"github.com/ralpioxxcs/zcalib/lm"
 	"github.com/sirupsen/logrus"
 	cv "gocv.io/x/gocv"
 	_ "gonum.org/v1/gonum/mat"
@@ -14,11 +15,12 @@ type Data struct {
 		Count      int     `yaml:"count"`
 		Row        int     `yaml:"row"`
 		Column     int     `yaml:"column"`
-		SquareSize float64 `yaml:"squareSize"`
-		Width      float64 `yaml:"width"`
-		Height     float64 `yaml:"height"`
+		SquareSize float32 `yaml:"squareSize"`
+		Width      float32 `yaml:"width"`
+		Height     float32 `yaml:"height"`
 	} `yaml:"board"`
-	Coordinates []Points `yaml:"coordinates"`
+	//Coordinates []cv.Point2fVector `yaml:"coordinates"`
+	Coordinates [][]Point2f `yaml:"coordinates"`
 }
 
 // CalibResults is set of calibration matrices
@@ -31,17 +33,13 @@ type CalibResults struct {
 	Translation []cv.Mat
 }
 
-// Points is a set of Point
-type Points []Point
+type Point2f []float32 // for only saving yaml
 
-// Point3s is a set of Point3
-type Point3s []Point3
-
-// Point is a [x,y]
-type Point [2]float64
-
-// Point is a [x,y,z]
-type Point3 [3]float64
+type Point3f struct {
+	X float32
+	Y float32
+	Z float32
+}
 
 // logger context
 var logger = logrus.New()
@@ -55,39 +53,40 @@ func Run(data Data) CalibResults {
 	logger.SetLevel(logrus.DebugLevel)
 	logger.Info("Calculate homography matrix each boards")
 
-	// initialize 3d coordinates of board
-	//var xyzPt Point3s
-	//for i := 0; i < data.Board.Row; i++ {
-	//  for j := 0; j < data.Board.Column; j++ {
-	//    xyzPt = append(xyzPt,
-	//      Point3{
-	//        float64(j) * data.Board.SquareSize,
-	//        float64(i) * data.Board.SquareSize,
-	//        0})
-	//  }
-	//}
-
-	obj := []Point{}
-	img := data.Coordinates
+	// initialize object point vector
+	objPts := []cv.Point2f{}
 	for i := 0; i < data.Board.Row; i++ {
 		for j := 0; j < data.Board.Column; j++ {
-			obj = append(obj,
-				Point{
-					float64(j) * data.Board.SquareSize,
-					float64(i) * data.Board.SquareSize})
+			objPts = append(objPts,
+				cv.Point2f{
+					X: float32(j) * data.Board.SquareSize,
+					Y: float32(i) * data.Board.SquareSize})
 		}
+	}
+	obj := cv.NewPoint2fVectorFromPoints(objPts)
+
+	// initialize image point vector
+	imgVec := []cv.Point2fVector{}
+	for _, s := range data.Coordinates {
+		cvpt := []cv.Point2f{}
+		for _, s2 := range s {
+			cvpt = append(cvpt, cv.Point2f{X: s2[0], Y: s2[1]})
+		}
+		imgVec = append(imgVec, cv.NewPoint2fVectorFromPoints(cvpt))
 	}
 
 	// 1. Calculate homographies
 	logger.Info("Solve H matrix (homography)")
 	homographies := []cv.Mat{}
 	// get each optimized homography matrix
-	for _, imgPt := range img {
+	for _, imgPt := range imgVec {
 		H := SolveH(imgPt, obj)
-		CurveFit()
-		//Hopt := RefineH(H, obj, imgPt)
+		H.Clone()
+		//H.Close()
+		//Hopt := lm.CurveFitting(H, obj, imgPt)
+		Hopt := lm.CurveFitting([]float32{1, 1, 1, 1, 1, 1, 1, 1}, []float32{12, 2, 2}, []float32{1, 2, 2})
+		homographies = append(homographies, Hopt)
 		//homographies = append(homographies, Hopt)
-		homographies = append(homographies, H)
 	}
 
 	//// 2. Extract intrisic camera paramter from homography matrix

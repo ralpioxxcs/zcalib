@@ -11,9 +11,9 @@ func printFormattedMat(m cv.Mat) fmt.Formatter {
 	return mat.Formatted(temp, mat.Prefix(""), mat.Squeeze())
 }
 
-func NewMatWithSizeNElem(rows int, cols int, mt cv.MatType, srcElems []float64) cv.Mat {
+func NewMatWithSizeNElem(rows int, cols int, mt cv.MatType, srcElems []float32) cv.Mat {
 	dstMat := cv.NewMatWithSize(rows, cols, mt)
-	dstElems, _ := dstMat.DataPtrFloat64()
+	dstElems, _ := dstMat.DataPtrFloat32()
 	copy(dstElems, srcElems)
 	return dstMat
 }
@@ -35,7 +35,7 @@ func min(a, b int) int {
 	return b
 }
 
-func minIdx(v []float64) int {
+func minIdx(v []float32) int {
 	minIdx := 0
 	min := v[minIdx]
 	for i, s := range v {

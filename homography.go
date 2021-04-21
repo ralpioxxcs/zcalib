@@ -8,54 +8,54 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-func SolveH(img Points, obj Points) cv.Mat {
-	N := len(obj)
+func SolveH(img cv.Point2fVector, obj cv.Point2fVector) cv.Mat {
+	N := obj.Size()
 	logger.Infof("corner size : %v", N)
 
-	if len(img) != len(obj) {
+	if img.Size() != obj.Size() {
 		logger.Fatalf("uv size != xyz size")
 	}
 
 	// Initialize normalized matrix, homogeneous points of uv, xyz points
 	normObjMatrix := normalize(obj)
 	normImgMatrix := normalize(img)
-	homoObjPts := homogeneous(obj)
-	homoImgPts := homogeneous(img)
+	homoObjPts := toHomogeneous(obj)
+	homoImgPts := toHomogeneous(img)
 
 	// Normalize all points (1x3)*(3x3)
 	normedHomoObjPts := dotProduct(normObjMatrix, homoObjPts)
 	normedHomoImgPts := dotProduct(normImgMatrix, homoImgPts)
 
 	// Create M matrix
-	M := cv.NewMatWithSize(2*N, 9, cv.MatTypeCV64F)
+	M := cv.NewMatWithSize(2*N, 9, cv.MatTypeCV32F)
 	for i := 0; i < N; i++ {
 		row1 := M.RowRange(i, i+1)
 		row2 := M.RowRange(i+N, (i+N)+1)
 
-		data1 := []float64{
-			-(normedHomoObjPts[i][0]),
-			-(normedHomoObjPts[i][1]),
+		data1 := []float32{
+			-(normedHomoObjPts[i].X),
+			-(normedHomoObjPts[i].Y),
 			-1,
 			0,
 			0,
 			0,
-			normedHomoImgPts[i][0] * normedHomoObjPts[i][0],
-			normedHomoImgPts[i][0] * normedHomoObjPts[i][1],
-			normedHomoImgPts[i][0]}
-		data2 := []float64{
+			normedHomoImgPts[i].X * normedHomoObjPts[i].X,
+			normedHomoImgPts[i].X * normedHomoObjPts[i].Y,
+			normedHomoImgPts[i].X}
+		data2 := []float32{
 			0,
 			0,
 			0,
-			-(normedHomoObjPts[i][0]),
-			-(normedHomoObjPts[i][1]),
+			-(normedHomoObjPts[i].X),
+			-(normedHomoObjPts[i].Y),
 			-1,
-			normedHomoImgPts[i][1] * normedHomoObjPts[i][0],
-			normedHomoImgPts[i][1] * normedHomoObjPts[i][1],
-			normedHomoImgPts[i][1]}
+			normedHomoImgPts[i].Y * normedHomoObjPts[i].X,
+			normedHomoImgPts[i].Y * normedHomoObjPts[i].Y,
+			normedHomoImgPts[i].Y}
 
 		for k := 0; k < M.Cols(); k++ {
-			row1.SetDoubleAt(0, k, data1[k])
-			row2.SetDoubleAt(0, k, data2[k])
+			row1.SetFloatAt(0, k, data1[k])
+			row2.SetFloatAt(0, k, data2[k])
 		}
 	}
 
@@ -66,12 +66,12 @@ func SolveH(img Points, obj Points) cv.Mat {
 	// Sigma(diagonal) : 9 X 1
 	// V_t             : 9 X 9
 	r, c := M.Rows(), M.Cols()
-	U := cv.NewMatWithSize(r, r, cv.MatTypeCV64F)
-	Sigma := cv.NewMatWithSize(c, 1, cv.MatTypeCV64F)
-	V_t := cv.NewMatWithSize(c, c, cv.MatTypeCV64F)
+	U := cv.NewMatWithSize(r, r, cv.MatTypeCV32F)
+	Sigma := cv.NewMatWithSize(c, 1, cv.MatTypeCV32F)
+	V_t := cv.NewMatWithSize(c, c, cv.MatTypeCV32F)
 	cv.SVDCompute(M, &Sigma, &U, &V_t)
 
-	ptr, _ := Sigma.DataPtrFloat64()
+	ptr, _ := Sigma.DataPtrFloat32()
 	minIdx := minIdx(ptr)
 	H_norm := V_t.RowRange(minIdx, minIdx+1)
 	H_norm = H_norm.Reshape(0, 3)
@@ -96,25 +96,26 @@ func SolveH(img Points, obj Points) cv.Mat {
 //  img : Nx2 detected corner points (uv)
 // Return :
 // 	 Refined 3x3 homography matrix
-func RefineH(H cv.Mat, obj []Point, img []Point) cv.Mat {
-	//Hclone := H.Clone()
-	//Hopt := cv.NewMatWithSize(c, 1, cv.MatTypeCV64F)
+//func RefineH(H cv.Mat, obj []Point, img []Point) cv.Mat {
+//  //Hclone := H.Clone()
+//  //Hopt := cv.NewMatWithSize(c, 1, cv.MatTypeCV64F)
 
-	return cv.Mat{}
-}
+//  return cv.Mat{}
+//}
 
-func normalize(pts []Point) cv.Mat {
-	var xs = make([]float64, len(pts))
-	var ys = make([]float64, len(pts))
-	for i, s := range pts {
-		xs[i] = s[0]
-		ys[i] = s[1]
+func normalize(pts cv.Point2fVector) cv.Mat {
+	gopts := pts.ToPoints()
+	nXs := make([]float64, len(gopts))
+	nYs := make([]float64, len(gopts))
+	for i := 0; i < len(gopts); i++ {
+		nXs[i] = float64(gopts[i].X)
+		nYs[i] = float64(gopts[i].Y)
 	}
 
-	meanX := stat.Mean(xs, nil)
-	meanY := stat.Mean(ys, nil)
-	varianceX := stat.Variance(xs, nil)
-	varianceY := stat.Variance(ys, nil)
+	meanX := stat.Mean(nXs, nil)
+	meanY := stat.Mean(nYs, nil)
+	varianceX := stat.Variance(nXs, nil)
+	varianceY := stat.Variance(nYs, nil)
 	sX := math.Sqrt(2 / varianceX)
 	sY := math.Sqrt(2 / varianceY)
 
@@ -122,33 +123,38 @@ func normalize(pts []Point) cv.Mat {
 	logger.Infof("variance X,Y : [%v,%v]", varianceX, varianceY)
 	logger.Infof("sX,sY : [%v,%v]", sX, sY)
 
-	srcElems := []float64{
-		sX, 0.0, -sX * meanX,
-		0.0, sY, -sY * meanY,
+	srcElems := []float32{
+		float32(sX), 0.0, float32(-sX * meanX),
+		0.0, float32(sY), float32(-sY * meanY),
 		0.0, 0.0, 1,
 	}
-	return NewMatWithSizeNElem(3, 3, cv.MatTypeCV64F, srcElems)
+	return NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, srcElems)
 }
 
-func homogeneous(pts Points) []Point3 {
-	homoPts := []Point3{}
-	for _, s := range pts {
-		homoPts = append(homoPts, Point3{s[0], s[1], 1})
+func toHomogeneous(pts cv.Point2fVector) []Point3f {
+	homoPts := []Point3f{}
+
+	gopts := pts.ToPoints()
+	for _, s := range gopts {
+		homoPts = append(homoPts, Point3f{
+			X: s.X,
+			Y: s.Y,
+			Z: 1})
 	}
 	return homoPts
 }
 
-func dotProduct(normMat cv.Mat, homoPts []Point3) []Point3 {
-	ret := []Point3{}
+func dotProduct(normMat cv.Mat, homoPts []Point3f) []Point3f {
+	ret := []Point3f{}
 	for _, s := range homoPts {
 		lMat := NewMatWithSizeNElem(
-			1, 3, cv.MatTypeCV64F,
-			[]float64{s[0], s[1], s[2]})
+			1, 3, cv.MatTypeCV32F,
+			[]float32{s.X, s.Y, s.Z})
 		dotMat := lMat.MultiplyMatrix(normMat.T())
-		ret = append(ret, Point3{
-			dotMat.GetDoubleAt(0, 0),
-			dotMat.GetDoubleAt(0, 1),
-			dotMat.GetDoubleAt(0, 2)})
+		ret = append(ret, Point3f{
+			X: dotMat.GetFloatAt(0, 0),
+			Y: dotMat.GetFloatAt(0, 1),
+			Z: dotMat.GetFloatAt(0, 2)})
 	}
 	return ret
 }
