@@ -76,9 +76,9 @@ func Run(data Data) CalibResults {
 	}
 
 	// 1. Calculate homographies
+	//    -> get each optimized homography matrix
 	logger.Info("Solve H matrix (homography)")
 	homographies := []cv.Mat{}
-	// get each optimized homography matrix
 	for i, imgPt := range imgVec {
 		H := SolveH(imgPt, obj)
 		Hary, _ := H.DataPtrFloat32()
@@ -93,19 +93,17 @@ func Run(data Data) CalibResults {
 	logger.Infof("K matrix : \n%v", printFormattedMat(K))
 
 	// 3. Calculate extrinsic matrix each board angle
-	//logger.Info("Solve E matrix (camera extrinsics)")
-	//var extrinsics []mat.Dense
-	//for i, h := range homographies {
-	//  E := solveE(h, *K)
-	//  extrinsics = append(extrinsics, *E)
-
-	//  fe := mat.Formatted(E, mat.Prefix(""), mat.Squeeze())
-	//  logger.Infof("[%v]Board extrinsic matrix : \n%v", i, fe)
-	//}
+	logger.Info("Solve E matrix (camera extrinsics)")
+	extrinsics := []cv.Mat{}
+	for i, h := range homographies {
+		E := solveE(h, K)
+		extrinsics = append(extrinsics, E)
+		logger.Infof("[%v] Board extrinsic matrix : \n%v", i, printFormattedMat(extrinsics[i]))
+	}
 
 	// 4. Estimate disotortion coefficients
-	//k1, k2 := estimateLensDistortion(uvPts, xyzPt, K, extrinsics)
-	//logger.Info("k1 : %v, k2 : %v", k1, k2)
+	k1, k2 := estimateLensDistortion(imgVec, obj, K, extrinsics)
+	logger.Infof("k1 : %v, k2 : %v", k1, k2)
 
 	// 5. Refine all parameters
 	//K, extrinsics, k1, k2 = refineAll(uvPts, xyzPt, K, extrinsics, k1, k2)

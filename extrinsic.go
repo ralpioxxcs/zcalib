@@ -2,66 +2,49 @@ package zcalib
 
 import (
 	cv "gocv.io/x/gocv"
-	"gonum.org/v1/gonum/mat"
+	_ "gonum.org/v1/gonum/mat"
 )
 
-func solveE(H cv.Mat, K cv.Mat) *mat.Dense {
-	//K_inv := mat.NewDense(3, 3, nil)
-	//K_inv.Inverse(&K)
-	//h_col0 := K.ColView(0)
-	//h_col1 := K.ColView(1)
-	//h_col2 := K.ColView(2)
+func solveE(H cv.Mat, K cv.Mat) cv.Mat {
 
-	//temMat := mat.NewDense(3, 1, nil)
-	//temMat.Mul(K_inv, h_col0)
-	////lambda := mat.Norm(temMat, 2)
+	K_inv := cv.NewMatWithSize(3, 3, cv.MatTypeCV32F)
+	ret := cv.Invert(K, &K_inv, cv.SolveDecompositionLu)
+	logger.Debugf("K_inv ret : %v", ret)
 
-	//var kh0, kh1, kh2 mat.Dense
-	//kh0.Mul(K_inv, h_col0)
-	//kh1.Mul(K_inv, h_col1)
-	//kh2.Mul(K_inv, h_col2)
+	Hcol0 := H.ColRange(0, 1)
+	Hcol1 := H.ColRange(1, 2)
+	Hcol2 := H.ColRange(2, 3)
 
-	////mat.
-	////lambda := 1 / (mat.
-	////lambda := 1 / (K_inv.Mul)
+	lambda := 1 / cv.Norm(K_inv.MultiplyMatrix(Hcol0), cv.NormL2)
 
-	return mat.NewDense(3, 3, nil)
+	temp := K_inv.MultiplyMatrix(Hcol0)
+	r0 := temp.Clone()
+	r0.MultiplyFloat(float32(lambda))
+
+	temp = K_inv.MultiplyMatrix(Hcol1)
+	r1 := temp.Clone()
+	r1.MultiplyFloat(float32(lambda))
+
+	r2 := r1.MultiplyMatrix(r0.T())
+	temp = K_inv.MultiplyMatrix(Hcol2)
+	t := temp.Clone()
+	t.MultiplyFloat(float32(lambda))
+
+	rStack := cv.NewMat()
+	cv.Hconcat(r0, r1, &rStack)
+	cv.Hconcat(rStack, r2, &rStack)
+
+	// Solve SVD
+	r, c := rStack.Rows(), rStack.Cols()
+	U := cv.NewMatWithSize(r, r, cv.MatTypeCV32F)
+	Sigma := cv.NewMatWithSize(c, 1, cv.MatTypeCV32F)
+	V_t := cv.NewMatWithSize(c, c, cv.MatTypeCV32F)
+	cv.SVDCompute(rStack, &Sigma, &U, &V_t)
+
+	R := U.MultiplyMatrix(V_t)
+
+	E := cv.NewMat()
+	cv.Hconcat(R, t, &E)
+
+	return E
 }
-
-//Mat extrinsic::solveE(const Mat H, const Mat K) {
-//  BOOST_ASSERT_MSG(K.cols == 3 && H.cols == 3, "input matrix column error");
-//  BOOST_ASSERT_MSG(K.rows == 3 && H.rows == 3, "input matrix row error");
-
-//  Mat K_inv = K.inv();
-//  Mat h_col0 = H.col(0);
-//  Mat h_col1 = H.col(1);
-//  Mat h_col2 = H.col(2);
-
-//  double lambda = 1 / cv::norm((K_inv * h_col0), cv::NORM_L2);
-
-//  Mat r0 = lambda * K_inv * h_col0;
-//  Mat r1 = lambda * K_inv * h_col1;
-//  Mat r2 = r0.cross(r1);
-
-//  Mat t = lambda * K_inv * h_col2;
-
-//  Mat rStack;
-//  hconcat(r0, r1, rStack);
-//  hconcat(rStack, r2, rStack);
-
-//  // APR_LOGGER(GET_LOGGER, DEBUG) << "stacked R :\n" << rStack;
-
-//  // Reorthogonalize rotation matrix
-//  // -> again based on singular-value decomposition
-//  Mat U, Sigma, V_t;
-//  SVD::compute(rStack, Sigma, U, V_t, SVD::FULL_UV);
-//  Mat R = U * V_t;
-
-//  // APR_LOGGER(GET_LOGGER, DEBUG) << "reorthogonalize matrix R :\n" << R;
-//  // APR_LOGGER(GET_LOGGER, DEBUG) << "translation matrix T :\n" << t;
-
-//  Mat E;
-//  hconcat(R, t, E);
-
-//  return E;
-//}

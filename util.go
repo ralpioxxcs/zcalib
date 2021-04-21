@@ -69,3 +69,29 @@ func mean(slice []float32) float32 {
 	}
 	return sum / float32(len(slice))
 }
+
+func normalize_projection(pt cv.Vecf, E cv.Mat) cv.Point2f {
+	return cv.Point2f{}
+}
+
+func projection_simple(pt cv.Vecf, K cv.Mat, E cv.Mat) cv.Point2f {
+	homoMat := NewMatWithSizeNElem(1, 3, cv.MatTypeCV32F, pt)
+	dst := E.MultiplyMatrix(homoMat)
+
+	pts := cv.Vecf{
+		dst.GetFloatAt(0, 0),
+		dst.GetFloatAt(0, 1),
+		dst.GetFloatAt(0, 2)}
+
+	inhomoPt := cv.Vecf{pts[0] / pts[2], pts[1] / pts[2], 1}
+
+	k1 := K.RowRange(0, 1)
+	k2 := K.RowRange(1, 2)
+	kp := cv.NewMat()
+	cv.Vconcat(k1, k2, &kp)
+
+	tempMat := NewMatWithSizeNElem(1, 3, cv.MatTypeCV32F, inhomoPt)
+	res := kp.MultiplyMatrix(tempMat)
+
+	return cv.Point2f{X: res.GetFloatAt(0, 0), Y: res.GetFloatAt(0, 1)}
+}
