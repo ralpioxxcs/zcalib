@@ -43,15 +43,19 @@ typedef struct Points2f {
 #ifdef __cplusplus
 typedef cv::Mat* Mat;
 typedef std::vector<cv::Point>* PointVector;
-typedef std::vector<std::vector<cv::Point>>* PointsVector;
 typedef std::vector<cv::Point2f>* Point2fVector;
-typedef std::vector<std::vector<cv::Point2f>>* Points2fVector;
 #else
 typedef void* Mat;
 typedef void* PointVector;
-typedef void* PointsVector;
 typedef void* Point2fVector;
 #endif
+
+PointVector zPointVector_New();
+Point2fVector zPoint2fVector_New();
+PointVector zPointVector_NewFromPoints(Points points);
+Point2fVector zPoint2fVector_NewFromPoints(Points2f points);
+int zPointVector_Size(PointVector pv);
+int zPoint2fVector_Size(Point2fVector pv);
 
 #include "minpack.h"
 
@@ -63,10 +67,11 @@ typedef struct {
   real* y;
 } fcndata_t;
 
-struct IntVector test(struct IntVector elem);
+//struct IntVector test(struct IntVector elem);
 
-//struct FloatVector curve_fit(struct FloatVector elem, struct FloatVector obj,
-//                             struct FloatVector img);
+//Point2fVector test_f(Point2fVector elem);
+
+FloatVector curve_fit(FloatVector elem, Point2fVector obj, Point2fVector img);
 
 // void curve_fit_all(floatVector p_init, Point2fVector obj, Points2fVector
 // img);

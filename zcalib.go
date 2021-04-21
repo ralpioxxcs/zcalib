@@ -79,14 +79,12 @@ func Run(data Data) CalibResults {
 	logger.Info("Solve H matrix (homography)")
 	homographies := []cv.Mat{}
 	// get each optimized homography matrix
-	for _, imgPt := range imgVec {
+	for i, imgPt := range imgVec {
 		H := SolveH(imgPt, obj)
-		H.Clone()
-		//H.Close()
-		//Hopt := lm.CurveFitting(H, obj, imgPt)
-		Hopt := lm.CurveFitting([]float32{1, 1, 1, 1, 1, 1, 1, 1}, []float32{12, 2, 2}, []float32{1, 2, 2})
+		Hary, _ := H.DataPtrFloat32()
+		Hopt := lm.CurveFitting(Hary, obj, imgPt)
 		homographies = append(homographies, Hopt)
-		//homographies = append(homographies, Hopt)
+		logger.Infof("[%v] Board refined homography matrix : \n%v", i, printFormattedMat(Hopt))
 	}
 
 	//// 2. Extract intrisic camera paramter from homography matrix
