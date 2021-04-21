@@ -115,19 +115,6 @@ func normalize(pts cv.Point2fVector) cv.Mat {
 	return NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, srcElems)
 }
 
-func toHomogeneous(pts cv.Point2fVector) []Point3f {
-	homoPts := []Point3f{}
-
-	gopts := pts.ToPoints()
-	for _, s := range gopts {
-		homoPts = append(homoPts, Point3f{
-			X: s.X,
-			Y: s.Y,
-			Z: 1})
-	}
-	return homoPts
-}
-
 func dotProduct(normMat cv.Mat, homoPts []Point3f) []Point3f {
 	ret := []Point3f{}
 	for _, s := range homoPts {

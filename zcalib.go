@@ -25,12 +25,12 @@ type Data struct {
 
 // CalibResults is set of calibration matrices
 type CalibResults struct {
-	Intrinsic   cv.Mat
-	DistCoeffs  cv.Mat
-	Homography  []cv.Mat
-	Extrinsics  []cv.Mat
-	Rotation    []cv.Mat
-	Translation []cv.Mat
+	Intrinsic  cv.Mat
+	DistCoeffs []float32
+	Homography []cv.Mat
+	Extrinsics []cv.Mat
+	//Rotation    []cv.Mat
+	//Translation []cv.Mat
 }
 
 type Point2f []float32 // for only saving yaml
@@ -106,7 +106,12 @@ func Run(data Data) CalibResults {
 	logger.Infof("k1 : %v, k2 : %v", k1, k2)
 
 	// 5. Refine all parameters
-	//K, extrinsics, k1, k2 = refineAll(uvPts, xyzPt, K, extrinsics, k1, k2)
+	K, extrinsics, k1, k2 = RefineAll(imgVec, obj, K, extrinsics, k1, k2)
 
-	return CalibResults{}
+	return CalibResults{
+		Intrinsic:  K,
+		DistCoeffs: []float32{k1, k2},
+		Homography: homographies,
+		Extrinsics: extrinsics,
+	}
 }

@@ -9,7 +9,7 @@ func estimateLensDistortion(
 	imgVec []cv.Point2fVector,
 	obj cv.Point2fVector,
 	K cv.Mat,
-	extrinsics []cv.Mat) (k1, k2 float64) {
+	extrinsics []cv.Mat) (k1, k2 float32) {
 
 	/**
 	 *  u(i,j)  : 투영된 uv 좌표 (3d->2d), projected sensor points
@@ -29,7 +29,7 @@ func estimateLensDistortion(
 	D := cv.NewMatWithSize(2*M*N, 2, cv.MatTypeCV32F)
 	d := cv.NewMatWithSize(2*M*N, 1, cv.MatTypeCV32F)
 
-	homogenObj := toHomogeneous(obj)
+	homogenObj := toHomogeneous3d(obj)
 	// loop for view
 	for i := 0; i < M; i++ {
 		// loop for model points
@@ -40,14 +40,13 @@ func estimateLensDistortion(
 			drow_v := d.RowRange(j+1, (j+1)+1)
 
 			t := homogenObj[(j%(N*2))/2]
-			vecf := cv.Vecf{t.X, t.Y, t.Z}
-			npPt := normalize_projection(vecf, extrinsics[i])
+			npPt := normalize_projection(t, extrinsics[i])
 			rad := math.Sqrt(float64((npPt.X * npPt.X) + (npPt.Y * npPt.Y)))
+			projected := projection_simple(t, K, extrinsics[i])
 
-			t = homogenObj[(j%(N*2))/2]
-			vecf = cv.Vecf{t.X, t.Y, t.Z}
-
-			projected := projection_simple(vecf, K, extrinsics[i])
+			logger.Debugf("npPt : %v,%v", npPt.X, npPt.Y)
+			logger.Debugf("rad : %v", rad)
+			logger.Debugf("projected : %v,%v", projected.X, projected.Y)
 
 			Du0 := (projected.X - uc) * (float32(math.Pow(rad, 2)))
 			Du1 := (projected.X - uc) * (float32(math.Pow(rad, 4)))
@@ -69,7 +68,11 @@ func estimateLensDistortion(
 	defer pInv.Close()
 
 	cv.Invert(D, &pInv, cv.SolveDecompositionSvd)
+
+	// 2x(2mn) * (2mn)x1 = 2x1
 	k := pInv.MultiplyMatrix(d)
 
-	return float64(k.GetFloatAt(0, 0)), float64(k.GetFloatAt(0, 1))
+	logger.Debugf("k : \n%v", printFormattedMat(k))
+
+	return k.GetFloatAt(0, 0), k.GetFloatAt(0, 1)
 }
