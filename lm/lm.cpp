@@ -149,15 +149,15 @@ FloatVector curve_fit(FloatVector elem, Point2fVector obj, Point2fVector img) {
   covfac = fnorm * fnorm / (m - n);
   __minpack_func__(covar)(&n, fjac, &ldjac, ipvt, &ftol, wa1);
 
-  std::cout << "final l2 norm of the residulas : " << (double)fnorm
-            << std::endl;
-  std::cout << "number of function evaluations :" << nfev << std::endl;
-  std::cout << "number of Jacobian evaluations :" << njev << std::endl;
-  std::cout << "exit parameter : " << info << std::endl;
-  std::cout << "[final approximate solution]" << std::endl;
-  for (int j = 1; j <= n; j++) {
-    std::cout << "[" << j - 1 << "] :" << (double)x[j - 1] << std::endl;
-  }
+  //std::cout << "final l2 norm of the residulas : " << (double)fnorm
+  //          << std::endl;
+  //std::cout << "number of function evaluations :" << nfev << std::endl;
+  //std::cout << "number of Jacobian evaluations :" << njev << std::endl;
+  //std::cout << "exit parameter : " << info << std::endl;
+  //std::cout << "[final approximate solution]" << std::endl;
+  //for (int j = 1; j <= n; j++) {
+  //  std::cout << "[" << j - 1 << "] :" << (double)x[j - 1] << std::endl;
+  //}
 
   FloatVector refined_vector;
   refined_vector.length = 3 * 3;

@@ -50,7 +50,7 @@ func Run(data Data) CalibResults {
 		FullTimestamp: true,
 	})
 	logger.SetOutput(os.Stdout)
-	logger.SetLevel(logrus.DebugLevel)
+	//logger.SetLevel(logrus.DebugLevel)
 	logger.Info("Calculate homography matrix each boards")
 
 	// initialize object point vector
@@ -87,14 +87,12 @@ func Run(data Data) CalibResults {
 		logger.Infof("[%v] Board refined homography matrix : \n%v", i, printFormattedMat(Hopt))
 	}
 
-	//// 2. Extract intrisic camera paramter from homography matrix
-	//logger.Info("Solve K matrix (camera intrinsic)")
-	//K := solveK(homographies)
+	// 2. Extract intrisic camera paramter from homography matrix
+	logger.Info("Solve K matrix (camera intrinsic)")
+	K := solveK(homographies)
+	logger.Infof("K matrix : \n%v", printFormattedMat(K))
 
-	//fk := mat.Formatted(K, mat.Prefix(""), mat.Squeeze())
-	//logger.Infof("K matrix : \n%v", fk)
-
-	//// 3. Calculate extrinsic matrix each board angle
+	// 3. Calculate extrinsic matrix each board angle
 	//logger.Info("Solve E matrix (camera extrinsics)")
 	//var extrinsics []mat.Dense
 	//for i, h := range homographies {

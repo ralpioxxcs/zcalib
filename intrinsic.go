@@ -1,7 +1,8 @@
 package zcalib
 
 import (
-	"gonum.org/v1/gonum/mat"
+	cv "gocv.io/x/gocv"
+	_ "gonum.org/v1/gonum/mat"
 	"math"
 )
 
@@ -19,82 +20,105 @@ import (
    |   v(0,0)(H(m-1))-v(1,1) |       | 0 |
    ---------------------------       -----
 */
-func solveK(homographies []mat.Dense) *mat.Dense {
+func solveK(homographies []cv.Mat) cv.Mat {
 	N := len(homographies)
 
 	// Generate stacked matrix
-	V := mat.NewDense(2*N, 6, nil)
+	V := cv.NewMatWithSize(2*N, 6, cv.MatTypeCV32F)
 	for i := 0; i < 2*N; i += 2 {
-		// contraints
-		v00 := getVElements(&homographies[i/2], 0, 0)
-		v01 := getVElements(&homographies[i/2], 0, 1)
-		v11 := getVElements(&homographies[i/2], 1, 1)
+		// contraints (1x6 matrix)
+		v00 := getVElements(homographies[i/2], 0, 0)
+		v01 := getVElements(homographies[i/2], 0, 1)
+		v11 := getVElements(homographies[i/2], 1, 1)
 
-		r, c := v00.Dims()
-		row1 := mat.NewDense(r, c, nil)
-		row2 := mat.NewDense(r, c, nil)
-		row1 = mat.DenseCopyOf(v01)
-		row2.Sub(v00, v11)
+		row1 := v01.Clone()
+		row2 := cv.NewMat()
+		cv.Subtract(v00, v11, &row2)
 
-		V.SetRow(i, row1.RawRowView(0))
-		V.SetRow(i+1, row2.RawRowView(0))
-	}
+		vrow1 := V.RowRange(i, i+1)
+		vrow2 := V.RowRange(i+1, (i+1)+1)
 
-	// Solve SVD
-	logger.Info("Solve SVD")
-	var svd mat.SVD
-	ok := svd.Factorize(V, mat.SVDFull)
-	if !ok {
-		logger.Fatal("failed to factorize V")
-	}
-	// extract SVD
-	m, n := V.Dims()
-	u := mat.NewDense(m, m, nil)
-	vt := mat.NewDense(n, n, nil)
-	svd.UTo(u)
-	svd.VTo(vt)
-	s := svd.Values(nil)
-	sminIdx := 0
-	smin := s[sminIdx]
-	for i, v := range s {
-		if smin > v {
-			smin = v
-			sminIdx = i
+		for k := 0; k < row1.Cols(); k++ {
+			vrow1.SetFloatAt(0, k, row1.GetFloatAt(0, k))
+			vrow2.SetFloatAt(0, k, row2.GetFloatAt(0, k))
 		}
 	}
-	brow := vt.RawRowView(sminIdx)
-	B := mat.NewDense(3, 3, []float64{
-		brow[0], brow[1], brow[3],
-		brow[1], brow[2], brow[4],
-		brow[3], brow[4], brow[5],
-	})
 
-	//fb := mat.Formatted(B, mat.Prefix(""), mat.Squeeze())
-	//logger.Infof("K matrix : \n%v", fb)
+	logger.Debugf("V: \n%v", printFormattedMat(V))
 
-	v0 := (B.At(0, 1)*B.At(0, 2) - B.At(0, 0)*B.At(1, 2)) / (B.At(0, 0)*B.At(1, 1) - B.At(0, 1)*B.At(0, 1))
-	lambda := B.At(2, 2) - ((B.At(0, 2)*B.At(0, 2))+v0*(B.At(0, 1)*B.At(0, 2)-B.At(0, 0)*B.At(1, 2)))/B.At(0, 0)
-	alpha := math.Sqrt(lambda / B.At(0, 0))
-	beta := math.Sqrt(lambda * B.At(0, 0) / (B.At(0, 0)*B.At(1, 1) - B.At(0, 1)*B.At(0, 1)))
-	gamma := -(B.At(0, 1) * (alpha * alpha) * beta) / lambda
-	u0 := ((gamma * v0) / beta) - (B.At(0, 2) * (alpha * alpha) / lambda)
+	// SVD(Singular Vector Decomposition)
+	// V = U*Sigma*V
+	// V               : (2 * N) X 6
+	// U 		 					 : (2 * N) X (2 * N)
+	// Sigma(diagonal) : 6 X 1
+	// V_t             : 6 X 6
+	r, c := V.Rows(), V.Cols()
+	U := cv.NewMatWithSize(r, r, cv.MatTypeCV32F)
+	Sigma := cv.NewMatWithSize(c, 1, cv.MatTypeCV32F)
+	V_t := cv.NewMatWithSize(c, c, cv.MatTypeCV32F)
+	cv.SVDCompute(V, &Sigma, &U, &V_t)
+
+	logger.Debugf("V_t: \n%v", printFormattedMat(V_t))
+
+	ptr, _ := Sigma.DataPtrFloat32()
+	minIdx := minIdx(ptr)
+	b := V_t.RowRange(minIdx, minIdx+1)
+
+	logger.Debugf("b: \n%v", printFormattedMat(b))
+
+	B := cv.NewMatWithSize(3, 3, cv.MatTypeCV32F)
+	B.SetFloatAt(0, 0, b.GetFloatAt(0, 0))
+	B.SetFloatAt(0, 1, b.GetFloatAt(0, 1))
+	B.SetFloatAt(0, 2, b.GetFloatAt(0, 3))
+	B.SetFloatAt(1, 0, b.GetFloatAt(0, 1))
+	B.SetFloatAt(1, 1, b.GetFloatAt(0, 2))
+	B.SetFloatAt(1, 2, b.GetFloatAt(0, 4))
+	B.SetFloatAt(2, 0, b.GetFloatAt(0, 3))
+	B.SetFloatAt(2, 1, b.GetFloatAt(0, 4))
+	B.SetFloatAt(2, 2, b.GetFloatAt(0, 5))
+
+	v0 := (B.GetFloatAt(0, 1)*B.GetFloatAt(0, 2) - B.GetFloatAt(0, 0)*B.GetFloatAt(1, 2)) /
+		(B.GetFloatAt(0, 0)*B.GetFloatAt(1, 1) - B.GetFloatAt(0, 1)*B.GetFloatAt(0, 1))
+
+	lambda :=
+		B.GetFloatAt(2, 2) - ((B.GetFloatAt(0, 2)*B.GetFloatAt(0, 2))+v0*(B.GetFloatAt(0, 1)*B.GetFloatAt(0, 2)-B.GetFloatAt(0, 0)*B.GetFloatAt(1, 2)))/
+			B.GetFloatAt(0, 0)
+
+	alpha := float32(math.Sqrt(float64((lambda / B.GetFloatAt(0, 0)))))
+
+	beta := float32(math.Sqrt(float64(lambda * B.GetFloatAt(0, 0) / (B.GetFloatAt(0, 0)*B.GetFloatAt(1, 1) - B.GetFloatAt(0, 1)*B.GetFloatAt(0, 1)))))
+
+	gamma := -(B.GetFloatAt(0, 1) * (alpha * alpha) * beta) / lambda
+
+	u0 := ((gamma * v0) / beta) - (B.GetFloatAt(0, 2) * (alpha * alpha) / lambda)
 
 	logger.Debugf("v0 : %v, lambda : %v , alpha : %v, beta : %v, gamma : %v, u0 : %v", v0, lambda, alpha, beta, gamma, u0)
 
-	return mat.NewDense(3, 3, []float64{
+	return NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
 		alpha, gamma, u0,
 		0, beta, v0,
 		0, 0, 1,
 	})
 }
 
-func getVElements(h mat.Matrix, p int, q int) *mat.Dense {
-	return mat.NewDense(1, 6, []float64{
-		(h.At(0, p) * h.At(0, q)),
-		(h.At(0, p) * h.At(1, q)) + (h.At(1, p) * h.At(0, q)),
-		(h.At(1, p) * h.At(1, q)),
-		(h.At(2, p) * h.At(0, q)) + (h.At(0, p) * h.At(2, q)),
-		(h.At(2, p) * h.At(1, q)) + (h.At(1, p) * h.At(2, q)),
-		(h.At(2, p) * h.At(2, q)),
-	})
+func getVElements(h cv.Mat, p int, q int) cv.Mat {
+	const (
+		row = 1
+		col = 6
+	)
+	m := cv.NewMatWithSize(row, col, cv.MatTypeCV32F)
+	m.SetFloatAt(0, 0,
+		h.GetFloatAt(0, p)*h.GetFloatAt(0, q))
+	m.SetFloatAt(0, 1,
+		(h.GetFloatAt(0, p)*h.GetFloatAt(1, q))+(h.GetFloatAt(1, p)*h.GetFloatAt(0, q)))
+	m.SetFloatAt(0, 2,
+		(h.GetFloatAt(1, p) * h.GetFloatAt(1, q)))
+	m.SetFloatAt(0, 3,
+		(h.GetFloatAt(2, p)*h.GetFloatAt(0, q))+(h.GetFloatAt(0, p)*h.GetFloatAt(2, q)))
+	m.SetFloatAt(0, 4,
+		(h.GetFloatAt(2, p)*h.GetFloatAt(1, q))+(h.GetFloatAt(1, p)*h.GetFloatAt(2, q)))
+	m.SetFloatAt(0, 5,
+		(h.GetFloatAt(2, p) * h.GetFloatAt(2, q)))
+
+	return m
 }

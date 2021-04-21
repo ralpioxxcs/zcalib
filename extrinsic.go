@@ -1,28 +1,29 @@
 package zcalib
 
 import (
+	cv "gocv.io/x/gocv"
 	"gonum.org/v1/gonum/mat"
 )
 
-func solveE(H mat.Dense, K mat.Dense) *mat.Dense {
-	K_inv := mat.NewDense(3, 3, nil)
-	K_inv.Inverse(&K)
-	h_col0 := K.ColView(0)
-	h_col1 := K.ColView(1)
-	h_col2 := K.ColView(2)
+func solveE(H cv.Mat, K cv.Mat) *mat.Dense {
+	//K_inv := mat.NewDense(3, 3, nil)
+	//K_inv.Inverse(&K)
+	//h_col0 := K.ColView(0)
+	//h_col1 := K.ColView(1)
+	//h_col2 := K.ColView(2)
 
-	temMat := mat.NewDense(3, 1, nil)
-	temMat.Mul(K_inv, h_col0)
-	//lambda := mat.Norm(temMat, 2)
+	//temMat := mat.NewDense(3, 1, nil)
+	//temMat.Mul(K_inv, h_col0)
+	////lambda := mat.Norm(temMat, 2)
 
-	var kh0, kh1, kh2 mat.Dense
-	kh0.Mul(K_inv, h_col0)
-	kh1.Mul(K_inv, h_col1)
-	kh2.Mul(K_inv, h_col2)
+	//var kh0, kh1, kh2 mat.Dense
+	//kh0.Mul(K_inv, h_col0)
+	//kh1.Mul(K_inv, h_col1)
+	//kh2.Mul(K_inv, h_col2)
 
-	//mat.
-	//lambda := 1 / (mat.
-	//lambda := 1 / (K_inv.Mul)
+	////mat.
+	////lambda := 1 / (mat.
+	////lambda := 1 / (K_inv.Mul)
 
 	return mat.NewDense(3, 3, nil)
 }

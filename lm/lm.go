@@ -9,7 +9,7 @@ package lm
 */
 import "C"
 import (
-	"fmt"
+	_ "fmt"
 	cv "gocv.io/x/gocv"
 	"reflect"
 	"unsafe"
@@ -84,7 +84,6 @@ func CurveFitting(elem []float32, obj cv.Point2fVector, img cv.Point2fVector) cv
 	for i := 0; i < len(sol); i++ {
 		sol[i] = float32(pa[i])
 	}
-	fmt.Println("result vector : ", sol)
 
 	refined := cv.NewMatWithSize(3, 3, cv.MatTypeCV32F)
 	refined.SetFloatAt(0, 0, sol[0]/sol[8])

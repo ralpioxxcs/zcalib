@@ -10,7 +10,7 @@ import (
 
 func SolveH(img cv.Point2fVector, obj cv.Point2fVector) cv.Mat {
 	N := obj.Size()
-	logger.Infof("corner size : %v", N)
+	logger.Debugf("corner size : %v", N)
 
 	if img.Size() != obj.Size() {
 		logger.Fatalf("uv size != xyz size")
@@ -87,22 +87,6 @@ func SolveH(img cv.Point2fVector, obj cv.Point2fVector) cv.Mat {
 	return H
 }
 
-// RefineH returns refined linear homography matrix
-// using nonlinear least sqaures
-//
-// Args :
-//	H   : 3x3 homography matrix
-//  obj : Nx2 world points
-//  img : Nx2 detected corner points (uv)
-// Return :
-// 	 Refined 3x3 homography matrix
-//func RefineH(H cv.Mat, obj []Point, img []Point) cv.Mat {
-//  //Hclone := H.Clone()
-//  //Hopt := cv.NewMatWithSize(c, 1, cv.MatTypeCV64F)
-
-//  return cv.Mat{}
-//}
-
 func normalize(pts cv.Point2fVector) cv.Mat {
 	gopts := pts.ToPoints()
 	nXs := make([]float64, len(gopts))
@@ -119,9 +103,9 @@ func normalize(pts cv.Point2fVector) cv.Mat {
 	sX := math.Sqrt(2 / varianceX)
 	sY := math.Sqrt(2 / varianceY)
 
-	logger.Infof("mean X,Y : [%v,%v]", meanX, meanY)
-	logger.Infof("variance X,Y : [%v,%v]", varianceX, varianceY)
-	logger.Infof("sX,sY : [%v,%v]", sX, sY)
+	logger.Debugf("mean X,Y : [%v,%v]", meanX, meanY)
+	logger.Debugf("variance X,Y : [%v,%v]", varianceX, varianceY)
+	logger.Debugf("sX,sY : [%v,%v]", sX, sY)
 
 	srcElems := []float32{
 		float32(sX), 0.0, float32(-sX * meanX),
