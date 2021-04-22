@@ -58,7 +58,7 @@ func RefineAll(
 
 			// Convert extrinsics to Rodrigues form matrix
 			Rod := toRodrigues33to31(R)
-			logger.Debugf("Rodrigues output (3x3 -> 3x1) : %v", Rod)
+			logger.Infof("Rodrigues output (3x3 -> 3x1) : %v", Rod)
 
 			// translation
 			extVec[i+0] = extrinsics[i/offset].GetFloatAt(0, 3)
@@ -87,6 +87,9 @@ func RefineAll(
 	 **/
 	M := len(imgVec)
 	N := obj.Size()
+
+	logger.Infof("M : %v", M)
+	logger.Infof("N : %v", N)
 
 	Xvec := make([]cv.Point2f, N)
 	Yvec := make([][]cv.Point2f, M)

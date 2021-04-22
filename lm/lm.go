@@ -9,7 +9,7 @@ package lm
 */
 import "C"
 import (
-	"fmt"
+	_ "fmt"
 	cv "gocv.io/x/gocv"
 	"reflect"
 	"unsafe"
@@ -134,23 +134,31 @@ func CurveFittingAll(elem []float32, obj cv.Point2fVector, imgVec []cv.Point2fVe
 
 	// image points vector
 	imgVecArray := make([]C.struct_Points2f, len(imgVec))
-	fmt.Printf("imgVec length : %v\n", len(imgVec))
-	for i := 0; i < len(imgVec); i++ {
-		imgArray := make([]C.struct_Point2f, imgVec[i].Size())
-		fmt.Printf("imgVec[%v] length : %v\n", i, imgVec[i].Size())
-		for j := 0; j < imgVec[i].Size(); j++ {
-			imgArray[j] = C.struct_Point2f{
+	for i, pt := range imgVec {
+		p := (*C.struct_Point2f)(C.malloc(C.size_t(C.sizeof_struct_Point2f * pt.Size())))
+		defer C.free(unsafe.Pointer(p))
+
+		h := &reflect.SliceHeader{
+			Data: uintptr(unsafe.Pointer(p)),
+			Len:  pt.Size(),
+			Cap:  pt.Size(),
+		}
+		pa := *(*[]C.Point2f)(unsafe.Pointer(h))
+
+		for j := 0; j < pt.Size(); j++ {
+			pa[j] = C.struct_Point2f{
 				x: C.float(imgVec[i].At(j).X),
 				y: C.float(imgVec[i].At(j).Y),
 			}
-			//fmt.Printf("x : %v, y : %v \n", imgVec[i].At(j).X, imgVec[i].At(j).Y)
 		}
+
 		imgVecArray[i] = C.struct_Points2f{
-			points: (*C.struct_Point2f)(&imgArray[0]),
-			length: C.int(imgVec[i].Size()),
+			points: (*C.Point2f)(p),
+			length: C.int(pt.Size()),
 		}
 	}
-	imgVecPoint2fVector := C.Points2fVectors{
+
+	imgVecPoint2fVector := C.struct_Points2fVectors{
 		vec:    (*C.struct_Points2f)(&imgVecArray[0]),
 		length: C.int(len(imgVec)),
 	}

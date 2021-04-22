@@ -45,6 +45,8 @@ func FindCorner(filename string) (corrner cv.Point2fVector) {
 		return
 	}
 
+	cv.CornerSubPix(img, &corners, image.Point{7, 7}, image.Point{-1, -1}, cv.NewTermCriteria(cv.Count+cv.EPS, 100, 0.01))
+
 	fmt.Printf("Corners Found. Size: %+v Rows: %+v Cols: %+v\n", corners.Size(), corners.Rows(), corners.Cols())
 	clone := img.Clone()
 	cv.CvtColor(clone, &clone, cv.ColorGrayToBGR)
