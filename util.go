@@ -4,6 +4,7 @@ import (
 	"fmt"
 	cv "gocv.io/x/gocv"
 	"gonum.org/v1/gonum/mat"
+	"math"
 )
 
 func printFormattedMat(m cv.Mat) fmt.Formatter {
@@ -140,64 +141,79 @@ func toHomogeneous3d(pts cv.Point2fVector) []cv.Vecf {
 	return homo3dPts
 }
 
-//Matx33d U, Vt;
-//       Vec3d W;
-//       double theta, s, c;
-//       int step = dst->rows > 1 ? dst->step / elem_size : 1;
-
-//       if( (dst->rows != 1 || dst->cols*CV_MAT_CN(dst->type) != 3) &&
-//           (dst->rows != 3 || dst->cols != 1 || CV_MAT_CN(dst->type) != 1))
-//           CV_Error( CV_StsBadSize, "Output matrix must be 1x3 or 3x1" );
-
-//       Matx33d R = cvarrToMat(src);
-
-//       if( !checkRange(R, true, NULL, -100, 100) )
-//       {
-//           cvZero(dst);
-//           if( jacobian )
-//               cvZero(jacobian);
-//           return 0;
-//       }
-
-//       SVD::compute(R, W, U, Vt);
-//       R = U*Vt;
-
-//       Point3d r(R(2, 1) - R(1, 2), R(0, 2) - R(2, 0), R(1, 0) - R(0, 1));
-
-//       s = std::sqrt((r.x*r.x + r.y*r.y + r.z*r.z)*0.25);
-//       c = (R(0, 0) + R(1, 1) + R(2, 2) - 1)*0.5;
-//       c = c > 1. ? 1. : c < -1. ? -1. : c;
-//       theta = acos(c);
-
-//       if( s < 1e-5 )
-//       {
-//           double t;
-
-//           if( c > 0 )
-//               r = Point3d(0, 0, 0);
-//           else
-//           {
-//               t = (R(0, 0) + 1)*0.5;
-//               r.x = std::sqrt(MAX(t,0.));
-//               t = (R(1, 1) + 1)*0.5;
-//               r.y = std::sqrt(MAX(t,0.))*(R(0, 1) < 0 ? -1. : 1.);
-//               t = (R(2, 2) + 1)*0.5;
-//               r.z = std::sqrt(MAX(t,0.))*(R(0, 2) < 0 ? -1. : 1.);
-//               if( fabs(r.x) < fabs(r.y) && fabs(r.x) < fabs(r.z) && (R(1, 2) > 0) != (r.y*r.z > 0) )
-//                   r.z = -r.z;
-//               theta /= norm(r);
-//               r *= theta;
-//           }
-
-//           if( jacobian )
-//           {
-//               memset( J, 0, sizeof(J) );
-//               if( c > 0 )
-//               {
-//                   J[5] = J[15] = J[19] = -0.5;
-//                   J[7] = J[11] = J[21] = 0.5;
-//               }
-//           }
 func toRodrigues(m cv.Mat) cv.Vecf {
+	// m = 3x3 matrix
 
+	// SVD
+	R := cv.NewMat()
+	U, Sigma, V_t := cv.NewMat(), cv.NewMat(), cv.NewMat()
+	cv.SVDCompute(R, &Sigma, &U, &V_t)
+	R = U.MultiplyMatrix(V_t)
+
+	r := cv.Vecf{
+		R.GetFloatAt(2, 1) - R.GetFloatAt(1, 2),
+		R.GetFloatAt(0, 2) - R.GetFloatAt(2, 0),
+		R.GetFloatAt(1, 0) - R.GetFloatAt(0, 1)}
+
+	s := math.Sqrt(float64((r[0]*r[0] + r[1]*r[1] + r[2]*r[2]) * 0.25))
+	c := (R.GetFloatAt(0, 0) + R.GetFloatAt(1, 1) + R.GetFloatAt(2, 2) - 1) * 0.5
+	//c = c > 1. ? 1. : c < -1. ? -1. : c
+	if c > 1. {
+		c = 1.
+	} else {
+		if c < -1. {
+			c = -1.
+		}
+	}
+	theta := math.Acos(float64(c))
+
+	if s < 1e-5 {
+		if c > 0 {
+			r = cv.Vecf{0, 0, 0}
+		} else {
+			t := (R.GetFloatAt(0, 0) + 1) * 0.5
+			r[0] = float32(math.Sqrt(math.Max(float64(t), 0.)))
+
+			t = (R.GetFloatAt(1, 1) + 1) * 0.5
+			temp := math.Sqrt(math.Max(float64(t), 0.)) * float64(R.GetFloatAt(0, 1))
+			if temp < 0 {
+				temp = -1.
+			} else {
+				temp = 1.
+			}
+			r[1] = float32(temp)
+
+			t = (R.GetFloatAt(2, 2) + 1) * 0.5
+			temp = math.Sqrt(math.Max(float64(t), 0.)) * float64(R.GetFloatAt(0, 2))
+			if temp < 0 {
+				temp = -1.
+			} else {
+				temp = 1.
+			}
+			r[2] = float32(temp)
+
+			if (math.Abs(float64(r[0])) < math.Abs(float64(r[1]))) &&
+				(math.Abs(float64(r[0])) < math.Abs(float64(r[2]))) &&
+				(R.GetFloatAt(1, 2) > 0) !=
+					(r[1]*r[2] > 0) {
+				r[2] = -r[2]
+			}
+
+			theta /= cv.Norm(NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, r), cv.NormL2)
+			r[0] *= float32(theta)
+			r[1] *= float32(theta)
+			r[2] *= float32(theta)
+		}
+	} else {
+		vth := 1 / (2 * s)
+		vth *= theta
+		rmat := NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, r)
+		rmat.MultiplyFloat(float32(vth))
+
+		r[0] = rmat.GetFloatAt(0, 0)
+		r[1] = rmat.GetFloatAt(1, 0)
+		r[2] = rmat.GetFloatAt(2, 0)
+	}
+
+	return cv.Vecf{r[0], r[1], r[2]}
 }

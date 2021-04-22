@@ -34,7 +34,6 @@ type Point2fVector struct {
 // * [return]
 //		refined 3x3 homography matrix
 func CurveFitting(elem []float32, obj cv.Point2fVector, img cv.Point2fVector) cv.Mat {
-
 	elemArray := make([]C.float, len(elem))
 	for i, s := range elem {
 		elemArray[i] = C.float(s)
@@ -97,6 +96,10 @@ func CurveFitting(elem []float32, obj cv.Point2fVector, img cv.Point2fVector) cv
 	refined.SetFloatAt(2, 2, sol[8]/sol[8])
 
 	return refined
+}
+
+func CurveFittingAll(p_init []float32, obj cv.Point2fVector, imgVec []cv.Point2fVector) []float32 {
+	return []float32{1, 1, 1}
 }
 
 //-------------------------------------------------------------

@@ -1,6 +1,7 @@
 package zcalib
 
 import (
+	"github.com/ralpioxxcs/zcalib/lm"
 	cv "gocv.io/x/gocv"
 )
 
@@ -13,21 +14,21 @@ func RefineAll(
 
 	// compose_Pvec returns united vector composist of intrisic, extrinsic values
 	p_init := func() []float32 {
-		alpha := K.GetFloatAt(0, 0)
-		beta := K.GetFloatAt(1, 1)
-		gamma := K.GetFloatAt(0, 1)
-		uc := K.GetFloatAt(0, 2)
-		vc := K.GetFloatAt(1, 2)
+		fx := K.GetFloatAt(0, 0)
+		fy := K.GetFloatAt(1, 1)
+		skew := K.GetFloatAt(0, 1)
+		cx := K.GetFloatAt(0, 2)
+		cy := K.GetFloatAt(1, 2)
 
 		M := len(imgVec)
 
 		pvec := make([]float32, 7)
 		extVec := make([]float32, M*6)
-		pvec[0] = alpha
-		pvec[1] = beta
-		pvec[2] = gamma
-		pvec[3] = uc
-		pvec[4] = vc
+		pvec[0] = fx
+		pvec[1] = fy
+		pvec[2] = skew
+		pvec[3] = cx
+		pvec[4] = cy
 		pvec[5] = k1
 		pvec[6] = k2
 
@@ -57,6 +58,7 @@ func RefineAll(
 
 			// Convert extrinsics to Rodrigues form matrix
 			Rod := toRodrigues(R)
+			logger.Infof("Rodrigues output : %v", Rod)
 
 			// translation
 			extVec[i+0] = extrinsics[i/offset].GetFloatAt(0, 3)
@@ -97,65 +99,38 @@ func RefineAll(
 			}
 		}
 	}
-	//lm.CurveFitting()
+	refined_p := lm.CurveFittingAll(p_init, obj, imgVec)
 
 	// Decompose vector to matrix form
 	return (func(p []float32) (cv.Mat, []cv.Mat, float32, float32) {
+		//logger.Debugf("p size : %v", len(p))
 
-		//APR_LOGGER(GET_LOGGER, DEBUG) << "p size :" << p.size();
+		//// Intrinsic parameter ( 0 ~ 4 )
+		//K := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
+		//  p[0], p[2], p[3],
+		//  0, p[1], p[3],
+		//  0, 0, 1,
+		//})
+		//// Distortion coefficients (5,6)
+		//k1 := p[5]
+		//k2 := p[6]
 
-		//BOOST_ASSERT_MSG(m_intrinsic.cols == 3 && m_intrinsic.rows == 3,
-		//                 "intrinsic matrix size is not initialized");
-		//BOOST_ASSERT_MSG(m_extrinsic.size() != 0,
-		//                 "extrinsic matrix vector size error");
-		//BOOST_ASSERT_MSG(m_extrinsic[0].cols == 4 && m_extrinsic[0].rows == 3,
-		//                 "extrinsic matrix size is not initialized");
+		//curIdx := 6
+		//// Extrinsic paramater
+		//t_data, r_data := make([]float32, len(extrinsics)), make([]float32, len(extrinsics))
+		//for i, e := range extrinsics {
+		//  t_data[i] = []float32{p[curIdx+i], p[curIdx+i+1], p[curIdx+i+2]}
+		//  r_data[i] = []float32{p[curIdx+i+3], p[curIdx+i+4], p[curIdx+i+5]}
 
-		//int curIdx = 0;
+		//  R := toRodrigues(NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, r_data))
+		//  t := NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, t_data)
 
-		//// 1. intrinsic parameter
-		//Mat K = m_intrinsic;
-		//const double fx = p[curIdx++];
-		//const double fy = p[curIdx++];
-		//const double skew = p[curIdx++];
-		//const double cx = p[curIdx++];
-		//const double cy = p[curIdx++];
-		//const double data[3][3] = {{fx, skew, cx}, {0, fy, cy}, {0, 0, 1}};
-		//for (int i = 0; i < m_intrinsic.rows; i++) {
-		//  for (int j = 0; j < m_intrinsic.cols; j++) {
-		//    K.at<double>(i, j) = data[i][j];
-		//  }
+		//  //E := cv.NewMat()
+		//  //cv.Hconcat(R, t, &E)
+		//  // extrinsics[i] = E
+
 		//}
-
-		//// 2. distortion coefficients
-		//m_k1 = p[curIdx++];
-		//m_k2 = p[curIdx++];
-
-		//// 3. extrinsic paramater
-		//int vecSize = m_extrinsic.size();
-		//for (int i = 0; i < vecSize; i++) {
-		//  double t_data[3] = {p[curIdx++], p[curIdx++], p[curIdx++]};
-		//  double r_data[3] = {p[curIdx++], p[curIdx++], p[curIdx++]};
-
-		//  Mat R;
-		//  Rodrigues(Mat(3, 1, CV_64F, r_data), R);
-		//  Mat t(3, 1, CV_64F, t_data);
-
-		//  BOOST_ASSERT_MSG(R.cols == 3 && R.rows == 3, "R matrix is not 3x3");
-
-		//  Mat E;
-		//  hconcat(R, t, E);
-
-		//  MatIterator_<double> it;
-		//  MatIterator_<double> src = E.begin<double>();
-		//  for (it = m_extrinsic[i].begin<double>();
-		//       it != m_extrinsic[i].end<double>(); it++, src++) {
-		//    *it = *src;
-		//  }
-		//}
-
-		//APR_LOGGER(GET_LOGGER, DEBUG) << "curIdx :" << curIdx;
 
 		return cv.NewMat(), []cv.Mat{}, 1, 2
-	}(p_init))
+	}(refined_p))
 }
