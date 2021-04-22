@@ -141,11 +141,74 @@ func toHomogeneous3d(pts cv.Point2fVector) []cv.Vecf {
 	return homo3dPts
 }
 
-func toRodrigues(m cv.Mat) cv.Vecf {
-	// m = 3x3 matrix
+// toRodrigues31to33 returns 3x3 matrix Rodrigues formed
+func toRodrigues31to33(v cv.Vecf) cv.Mat {
+	const (
+		FLT_EPSILON = 1.1920929e-07
+		DBL_EPSILON = 2.2204460492503131e-16
+	)
 
+	dst := cv.NewMat()
+
+	r := v
+	theta := cv.Norm(NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, r), cv.NormL2)
+	if theta < DBL_EPSILON {
+		R := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
+			v[0], 0, 0,
+			0, v[1], 0,
+			0, 0, v[2],
+		})
+		R.CopyTo(&dst)
+	} else {
+		c := math.Cos(theta)
+		s := math.Sin(theta)
+		c1 := 1. - c
+		var itheta float64
+		if theta > 0 {
+			itheta = 1. / theta
+		} else {
+			itheta = 0.
+		}
+
+		r[0] *= float32(itheta)
+		r[1] *= float32(itheta)
+		r[2] *= float32(itheta)
+
+		rrt := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
+			r[0] * r[0], r[0] * r[1], r[0] * r[2],
+			r[0] * r[1], r[1] * r[1], r[1] * r[2],
+			r[0] * r[2], r[1] * r[2], r[2] * r[2],
+		})
+		r_x := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
+			0, -r[2], r[1],
+			r[2], 0, -r[0],
+			-r[1], r[0], 0,
+		})
+
+		eye := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
+			1, 0, 0,
+			0, 1, 0,
+			0, 0, 1})
+		eye.MultiplyFloat(float32(c))
+		rrt.MultiplyFloat(float32(c1))
+		r_x.MultiplyFloat(float32(s))
+
+		cv.Add(eye, rrt, &rrt)
+		cv.Add(rrt, r_x, &r_x)
+
+		R := r_x.Clone()
+		R.CopyTo(&dst)
+
+	}
+
+	return cv.NewMat()
+}
+
+// toRodrigues33to31 return 3x1 vector Rodrigues formed
+func toRodrigues33to31(m cv.Mat) cv.Vecf {
+	// m = 3x3 matrix
 	// SVD
-	R := cv.NewMat()
+	R := m.Clone()
 	U, Sigma, V_t := cv.NewMat(), cv.NewMat(), cv.NewMat()
 	cv.SVDCompute(R, &Sigma, &U, &V_t)
 	R = U.MultiplyMatrix(V_t)

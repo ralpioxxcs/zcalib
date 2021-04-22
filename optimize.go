@@ -57,14 +57,15 @@ func RefineAll(
 			copy(ptrdst, ptrsrc)
 
 			// Convert extrinsics to Rodrigues form matrix
-			Rod := toRodrigues(R)
-			logger.Infof("Rodrigues output : %v", Rod)
+			Rod := toRodrigues33to31(R)
+			logger.Debugf("Rodrigues output (3x3 -> 3x1) : %v", Rod)
 
 			// translation
 			extVec[i+0] = extrinsics[i/offset].GetFloatAt(0, 3)
 			extVec[i+1] = extrinsics[i/offset].GetFloatAt(1, 3)
 			extVec[i+2] = extrinsics[i/offset].GetFloatAt(2, 3)
-			// rotation (rodrigues)a
+
+			// rotation (rodrigues)
 			extVec[i+3] = Rod[0]
 			extVec[i+4] = Rod[1]
 			extVec[i+5] = Rod[2]
@@ -93,13 +94,15 @@ func RefineAll(
 	for i, v := range obj.ToPoints() {
 		Xvec[i] = v
 		for j := 0; j < M; j++ {
-			Yvec[i] = make([]cv.Point2f, len(imgVec[i].ToPoints()))
-			for k, v2 := range imgVec[i].ToPoints() {
-				Yvec[i][k] = v2
+			Yvec[j] = make([]cv.Point2f, len(imgVec[j].ToPoints()))
+			for k, v2 := range imgVec[j].ToPoints() {
+				Yvec[j][k] = v2
 			}
 		}
 	}
 	refined_p := lm.CurveFittingAll(p_init, obj, imgVec)
+
+	logger.Infof("refined_p : %v", refined_p)
 
 	// Decompose vector to matrix form
 	return (func(p []float32) (cv.Mat, []cv.Mat, float32, float32) {
