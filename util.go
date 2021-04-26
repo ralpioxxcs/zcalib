@@ -201,7 +201,7 @@ func toRodrigues31to33(v cv.Vecf) cv.Mat {
 
 	}
 
-	return cv.NewMat()
+	return dst
 }
 
 // toRodrigues33to31 return 3x1 vector Rodrigues formed

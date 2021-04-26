@@ -6,6 +6,8 @@ PointVector zPointVector_New() { return new std::vector<cv::Point>; }
 
 Point2fVector zPoint2fVector_New() { return new std::vector<cv::Point2f>; }
 
+Point2dVector zPoint2dVector_New() { return new std::vector<cv::Point2d>; }
+
 PointVector zPointVector_NewFromPoints(Points points) {
   std::vector<cv::Point>* cntr = new std::vector<cv::Point>;
 
@@ -21,6 +23,16 @@ Point2fVector zPoint2fVector_NewFromPoints(Points2f points) {
 
   for (size_t i = 0; i < points.length; i++) {
     cntr->push_back(cv::Point2f(points.points[i].x, points.points[i].y));
+  }
+
+  return cntr;
+}
+
+Point2dVector zPoint2dVector_NewFromPoints(Points2d points) {
+  std::vector<cv::Point2d>* cntr = new std::vector<cv::Point2d>;
+
+  for (size_t i = 0; i < points.length; i++) {
+    cntr->push_back(cv::Point2d(points.points[i].x, points.points[i].y));
   }
 
   return cntr;
@@ -64,21 +76,44 @@ Point2fVectorVector zPoint2fVectorVector_NewFromVector(Points2fVectors vec) {
   return cntr;
 }
 
+Point2dVectorVector zPoint2dVectorVector_NewFromVector(Points2dVectors vec) {
+  std::vector<std::vector<cv::Point2d>>* cntr =
+      new std::vector<std::vector<cv::Point2d>>;
+
+  for (size_t i = 0; i < vec.length; i++) {
+    Points2d pts = vec.vec[i];
+
+    std::vector<cv::Point2d> tv;
+
+    for (size_t j = 0; j < pts.length; j++) {
+      tv.push_back(cv::Point2d(pts.points[j].x, pts.points[j].y));
+    }
+
+    cntr->push_back(tv);
+  }
+
+  return cntr;
+}
+
 int zPointVector_Size(PointVector pv) { return pv->size(); }
 
 int zPoint2fVector_Size(Point2fVector pv) { return pv->size(); }
+
+int zPoint2dVector_Size(Point2dVector pv) { return pv->size(); }
 
 int zPointVectorVector_Size(PointVectorVector pvv) { return pvv->size(); }
 
 int zPoint2fVectorVector_Size(Point2fVectorVector pvv) { return pvv->size(); }
 
+int zPoint2dVectorVector_Size(Point2dVectorVector pvv) { return pvv->size(); }
+
 //---------------------------------------------------------------------
 
-std::vector<cv::Vec<double, 4>> to_homogeneous3d(Point2fVector vec);
+std::vector<cv::Vec<double, 4>> to_homogeneous3d(Point2dVector vec);
 
-cv::Point2f distort(cv::Point2f pt, cv::Mat k);
+cv::Point2d distort(cv::Point2d pt, cv::Mat k);
 
-cv::Point2f projection(cv::Vec<double, 4> pt, cv::Mat K, cv::Mat k, cv::Mat E);
+cv::Point2d projection(cv::Vec<double, 4> pt, cv::Mat K, cv::Mat k, cv::Mat E);
 
 void fcn(const int* m, const int* n, const real* x, real* fvec, real* fjac,
          const int* ldjac, int* iflag);
@@ -86,9 +121,10 @@ void fcn(const int* m, const int* n, const real* x, real* fvec, real* fjac,
 void fcn_all(const int* m, const int* n, const real* x, real* fvec, int* iflag);
 
 // homography opt
-Point2fVector g_objPtr;
-Point2fVector g_imgPtr;
-FloatVector curve_fit(FloatVector elem, Point2fVector obj, Point2fVector img) {
+Point2dVector g_objPtr;
+Point2dVector g_imgPtr;
+DoubleVector curve_fit(DoubleVector elem, Point2dVector obj,
+                       Point2dVector img) {
   const int objSize = obj->size();
   const int imgSize = img->size();
 
@@ -132,7 +168,8 @@ FloatVector curve_fit(FloatVector elem, Point2fVector obj, Point2fVector img) {
   fnorm = __minpack_func__(enorm)(&m, fvec);
 
   std::cout << "curvefit" << std::endl;
-  std::cout << "final l2 norm of the residulas : " << (double)fnorm << std::endl;
+  std::cout << "final l2 norm of the residulas : " << (double)fnorm
+            << std::endl;
   std::cout << "number of function evaluations :" << nfev << std::endl;
   std::cout << "number of jacobian evaluations :" << njev << std::endl;
   std::cout << "exit parameter : " << info << std::endl;
@@ -141,9 +178,9 @@ FloatVector curve_fit(FloatVector elem, Point2fVector obj, Point2fVector img) {
   covfac = fnorm * fnorm / (m - n);
   __minpack_func__(covar)(&n, fjac, &ldjac, ipvt, &ftol, wa1);
 
-  FloatVector refined_vector;
+  DoubleVector refined_vector;
   refined_vector.length = 3 * 3;
-  refined_vector.val = new float[refined_vector.length];
+  refined_vector.val = new double[refined_vector.length];
   for (auto i = 0; i < refined_vector.length; i++) {
     refined_vector.val[i] = x[i];
   }
@@ -151,12 +188,17 @@ FloatVector curve_fit(FloatVector elem, Point2fVector obj, Point2fVector img) {
 }
 
 // refine opt
-FloatVector g_ref_p;
-Point2fVector g_ref_objPtr;
-Point2fVectorVector g_ref_imgVecPtr;
+DoubleVector g_ref_p;
+Point2dVector g_ref_objPtr;
+Point2dVectorVector g_ref_imgVecPtr;
 
-FloatVector curve_fit_all(FloatVector elem, Point2fVector obj,
-                          Point2fVectorVector imgVec) {
+DoubleVector curve_fit_all(DoubleVector elem, Point2dVector obj,
+                           Point2dVectorVector imgVec) {
+
+  for(int i=0; i<elem.length; i++ ) {
+    std::cout << "elem[" << i << "] : " << elem.val[i] << std::endl;
+  }
+
   const int objSize = obj->size();
   const int imgVecSize = imgVec->size();
 
@@ -169,6 +211,9 @@ FloatVector curve_fit_all(FloatVector elem, Point2fVector obj,
 
   int m = 2 * (imgVecSize) * (objSize);
   int n = elem.length;
+
+  std::cout << "m : " << m << std::endl;
+  std::cout << "n : " << n << std::endl;
 
   int one = 1;
   real x[n];
@@ -205,7 +250,8 @@ FloatVector curve_fit_all(FloatVector elem, Point2fVector obj,
                           wa4);
   fnorm = __minpack_func__(enorm)(&m, fvec);
 
-  std::cout << "final l2 norm of the residuals : " << (double)fnorm << std::endl;
+  std::cout << "final l2 norm of the residuals : " << (double)fnorm
+            << std::endl;
   std::cout << "number of function evaluations :" << nfev << std::endl;
   std::cout << "exit parameter : " << info << std::endl;
 
@@ -214,9 +260,9 @@ FloatVector curve_fit_all(FloatVector elem, Point2fVector obj,
   __minpack_func__(covar)(&n, fjac, &ldjac, ipvt, &ftol, wa1);
 
   int xSize = sizeof(x) / sizeof(x[0]);
-  FloatVector refined_vector;
+  DoubleVector refined_vector;
   refined_vector.length = xSize;
-  refined_vector.val = new float[refined_vector.length];
+  refined_vector.val = new double[refined_vector.length];
   for (auto i = 0; i < refined_vector.length; i++) {
     refined_vector.val[i] = x[i];
   }
@@ -248,12 +294,12 @@ void unpack_p(std::vector<double> p, cv::Mat& K, cv::Mat& k, cv::Mat& E,
   const int size = 6;
 
   double t_data[3] = {p[(curIdx * size) + offset + 0],
-                     p[(curIdx * size) + offset + 1],
-                     p[(curIdx * size) + offset + 2]};
+                      p[(curIdx * size) + offset + 1],
+                      p[(curIdx * size) + offset + 2]};
 
   double r_data[3] = {p[(curIdx * size) + offset + 3],
-                     p[(curIdx * size) + offset + 4],
-                     p[(curIdx * size) + offset + 5]};
+                      p[(curIdx * size) + offset + 4],
+                      p[(curIdx * size) + offset + 5]};
 
   cv::Mat R;
   cv::Mat E_(3, 4, CV_64F);
@@ -414,8 +460,8 @@ void fcn_all(const int* m, const int* n, const real* x, real* fvec,
   return;
 }
 
-cv::Point2f distort(cv::Point2f pt, cv::Mat k) {
-  cv::Point2f ret;
+cv::Point2d distort(cv::Point2d pt, cv::Mat k) {
+  cv::Point2d ret;
 
   double x = pt.x;
   double y = pt.y;
@@ -434,7 +480,7 @@ cv::Point2f distort(cv::Point2f pt, cv::Mat k) {
   return ret;
 }
 
-std::vector<cv::Vec<double, 4>> to_homogeneous3d(Point2fVector vec) {
+std::vector<cv::Vec<double, 4>> to_homogeneous3d(Point2dVector vec) {
   size_t sz = vec->size();
   std::vector<cv::Vec<double, 4>> homoVec(sz);
   for (int i = 0; i < sz; i++) {
@@ -446,26 +492,26 @@ std::vector<cv::Vec<double, 4>> to_homogeneous3d(Point2fVector vec) {
   return homoVec;
 }
 
-cv::Point2f projection(cv::Vec<double, 4> pt, cv::Mat K, cv::Mat k, cv::Mat E) {
-  cv::Point2f ret;
+cv::Point2d projection(cv::Vec<double, 4> pt, cv::Mat K, cv::Mat k, cv::Mat E) {
+  cv::Point2d ret;
 
   cv::Mat homoMat(pt, true);
   cv::Mat dst = E * homoMat;
 
-  cv::Point3f pts;
-  pts = cv::Point3f(dst.at<double>(0, 0), dst.at<double>(0, 1),
+  cv::Point3d pts;
+  pts = cv::Point3d(dst.at<double>(0, 0), dst.at<double>(0, 1),
                     dst.at<double>(0, 2));
-  cv::Point2f inhomoPnt(pts.x / pts.z, pts.y / pts.z);
+  cv::Point2d inhomoPnt(pts.x / pts.z, pts.y / pts.z);
 
   // apply distortion
-  cv::Point2f distortedPnt;
+  cv::Point2d distortedPnt;
   if (!k.empty()) {
     distortedPnt = distort(inhomoPnt, k);
   } else {
     distortedPnt = inhomoPnt;
   }
 
-  cv::Point3f homoDistortedPnt;
+  cv::Point3d homoDistortedPnt;
   homoDistortedPnt.x = distortedPnt.x;
   homoDistortedPnt.y = distortedPnt.y;
   homoDistortedPnt.z = 1.0;

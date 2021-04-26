@@ -50,7 +50,7 @@ func Run(data Data) CalibResults {
 		FullTimestamp: true,
 	})
 	logger.SetOutput(os.Stdout)
-	//logger.SetLevel(logrus.DebugLevel)
+	logger.SetLevel(logrus.DebugLevel)
 	logger.Info("Calculate homography matrix each boards")
 
 	// initialize object point vector
@@ -106,7 +106,14 @@ func Run(data Data) CalibResults {
 	logger.Infof("k1 : %v, k2 : %v", k1, k2)
 
 	// 5. Refine all parameters
-	K, extrinsics, k1, k2 = RefineAll(imgVec, obj, K, extrinsics, k1, k2)
+	logger.Info("Refine all parameters")
+	refK, refExtrinsics, refk1, refk2 := RefineAll(imgVec, obj, K, extrinsics, k1, k2)
+
+	logger.Infof("refined K : \n%v", printFormattedMat(refK))
+	for i, v := range refExtrinsics {
+		logger.Infof("refined E[%v] : \n%v", i, printFormattedMat(v))
+	}
+	logger.Infof("refined disotortion coefficients k1,k2 : %v,%v", refk1, refk2)
 
 	return CalibResults{
 		Intrinsic:  K,

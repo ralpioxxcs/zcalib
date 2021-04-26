@@ -25,6 +25,11 @@ type Point2fVector struct {
 	p C.Point2fVector
 }
 
+// Point2dVector is a wrapper around a std::vector<cv::Point2f>*
+type Point2dVector struct {
+	p C.Point2dVector
+}
+
 // PointVectorVector is a wrapper around a std::vector<std::vector<cv::Point>>*
 type PointVectorVector struct {
 	p C.PointVectorVector
@@ -33,6 +38,11 @@ type PointVectorVector struct {
 // Point2fVectorVector is a wrapper around a std::vector<std::vector<cv::Point2f>>*
 type Point2fVectorVector struct {
 	p C.Point2fVectorVector
+}
+
+// Point2dVectorVector is a wrapper around a std::vector<std::vector<cv::Point2f>>*
+type Point2dVectorVector struct {
+	p C.Point2dVectorVector
 }
 
 // CurveFitting return refined linear homography matrix
@@ -44,50 +54,50 @@ type Point2fVectorVector struct {
 // * [return]
 //		refined 3x3 homography matrix
 func CurveFitting(elem []float32, obj cv.Point2fVector, img cv.Point2fVector) cv.Mat {
-	elemArray := make([]C.float, len(elem))
+	elemArray := make([]C.double, len(elem))
 	for i, s := range elem {
-		elemArray[i] = C.float(s)
+		elemArray[i] = C.double(s)
 	}
-	elemFloatVector := C.FloatVector{
-		val:    (*C.float)(&elemArray[0]),
+	elemDoubleVector := C.DoubleVector{
+		val:    (*C.double)(&elemArray[0]),
 		length: C.int(len(elem)),
 	}
 
-	objArray := make([]C.struct_Point2f, obj.Size())
+	objArray := make([]C.struct_Point2d, obj.Size())
 	for i := 0; i < obj.Size(); i++ {
-		objArray[i] = C.struct_Point2f{
-			x: C.float(obj.At(i).X),
-			y: C.float(obj.At(i).Y),
+		objArray[i] = C.struct_Point2d{
+			x: C.double(obj.At(i).X),
+			y: C.double(obj.At(i).Y),
 		}
 	}
-	objPoint2fVector := C.Points2f{
-		points: (*C.Point2f)(&objArray[0]),
+	objPoint2dVector := C.Points2d{
+		points: (*C.Point2d)(&objArray[0]),
 		length: C.int(obj.Size()),
 	}
 
-	imgArray := make([]C.struct_Point2f, img.Size())
+	imgArray := make([]C.struct_Point2d, img.Size())
 	for i := 0; i < img.Size(); i++ {
-		imgArray[i] = C.struct_Point2f{
-			x: C.float(img.At(i).X),
-			y: C.float(img.At(i).Y),
+		imgArray[i] = C.struct_Point2d{
+			x: C.double(img.At(i).X),
+			y: C.double(img.At(i).Y),
 		}
 	}
-	imgPoint2fVector := C.Points2f{
-		points: (*C.Point2f)(&imgArray[0]),
+	imgPoint2dVector := C.Points2d{
+		points: (*C.Point2d)(&imgArray[0]),
 		length: C.int(img.Size()),
 	}
 
 	rv := C.curve_fit(
-		elemFloatVector,
-		C.zPoint2fVector_NewFromPoints(objPoint2fVector),
-		C.zPoint2fVector_NewFromPoints(imgPoint2fVector))
+		elemDoubleVector,
+		C.zPoint2dVector_NewFromPoints(objPoint2dVector),
+		C.zPoint2dVector_NewFromPoints(imgPoint2dVector))
 
 	h := &reflect.SliceHeader{
 		Data: uintptr(unsafe.Pointer(rv.val)),
 		Len:  int(rv.length),
 		Cap:  int(rv.length),
 	}
-	pa := *(*[]C.float)(unsafe.Pointer(h))
+	pa := *(*[]C.double)(unsafe.Pointer(h))
 
 	sol := make([]float32, int(rv.length))
 	for i := 0; i < len(sol); i++ {
@@ -110,32 +120,32 @@ func CurveFitting(elem []float32, obj cv.Point2fVector, img cv.Point2fVector) cv
 
 func CurveFittingAll(elem []float32, obj cv.Point2fVector, imgVec []cv.Point2fVector) []float32 {
 	// elements
-	elemArray := make([]C.float, len(elem))
+	elemArray := make([]C.double, len(elem))
 	for i, s := range elem {
-		elemArray[i] = C.float(s)
+		elemArray[i] = C.double(s)
 	}
-	elemFloatVector := C.FloatVector{
-		val:    (*C.float)(&elemArray[0]),
+	elemDoubleVector := C.DoubleVector{
+		val:    (*C.double)(&elemArray[0]),
 		length: C.int(len(elem)),
 	}
 
 	// objects
-	objArray := make([]C.struct_Point2f, obj.Size())
+	objArray := make([]C.struct_Point2d, obj.Size())
 	for i := 0; i < obj.Size(); i++ {
-		objArray[i] = C.struct_Point2f{
-			x: C.float(obj.At(i).X),
-			y: C.float(obj.At(i).Y),
+		objArray[i] = C.struct_Point2d{
+			x: C.double(obj.At(i).X),
+			y: C.double(obj.At(i).Y),
 		}
 	}
-	objPoint2fVector := C.Points2f{
-		points: (*C.Point2f)(&objArray[0]),
+	objPoint2dVector := C.Points2d{
+		points: (*C.Point2d)(&objArray[0]),
 		length: C.int(obj.Size()),
 	}
 
 	// image points vector
-	imgVecArray := make([]C.struct_Points2f, len(imgVec))
+	imgVecArray := make([]C.struct_Points2d, len(imgVec))
 	for i, pt := range imgVec {
-		p := (*C.struct_Point2f)(C.malloc(C.size_t(C.sizeof_struct_Point2f * pt.Size())))
+		p := (*C.struct_Point2d)(C.malloc(C.size_t(C.sizeof_struct_Point2d * pt.Size())))
 		defer C.free(unsafe.Pointer(p))
 
 		h := &reflect.SliceHeader{
@@ -143,37 +153,37 @@ func CurveFittingAll(elem []float32, obj cv.Point2fVector, imgVec []cv.Point2fVe
 			Len:  pt.Size(),
 			Cap:  pt.Size(),
 		}
-		pa := *(*[]C.Point2f)(unsafe.Pointer(h))
+		pa := *(*[]C.Point2d)(unsafe.Pointer(h))
 
 		for j := 0; j < pt.Size(); j++ {
-			pa[j] = C.struct_Point2f{
-				x: C.float(imgVec[i].At(j).X),
-				y: C.float(imgVec[i].At(j).Y),
+			pa[j] = C.struct_Point2d{
+				x: C.double(imgVec[i].At(j).X),
+				y: C.double(imgVec[i].At(j).Y),
 			}
 		}
 
-		imgVecArray[i] = C.struct_Points2f{
-			points: (*C.Point2f)(p),
+		imgVecArray[i] = C.struct_Points2d{
+			points: (*C.Point2d)(p),
 			length: C.int(pt.Size()),
 		}
 	}
 
-	imgVecPoint2fVector := C.struct_Points2fVectors{
-		vec:    (*C.struct_Points2f)(&imgVecArray[0]),
+	imgVecPoint2dVector := C.struct_Points2dVectors{
+		vec:    (*C.struct_Points2d)(&imgVecArray[0]),
 		length: C.int(len(imgVec)),
 	}
 
 	rv := C.curve_fit_all(
-		elemFloatVector,
-		C.zPoint2fVector_NewFromPoints(objPoint2fVector),
-		C.zPoint2fVectorVector_NewFromVector(imgVecPoint2fVector))
+		elemDoubleVector,
+		C.zPoint2dVector_NewFromPoints(objPoint2dVector),
+		C.zPoint2dVectorVector_NewFromVector(imgVecPoint2dVector))
 
 	h := &reflect.SliceHeader{
 		Data: uintptr(unsafe.Pointer(rv.val)),
 		Len:  int(rv.length),
 		Cap:  int(rv.length),
 	}
-	pa := *(*[]C.float)(unsafe.Pointer(h))
+	pa := *(*[]C.double)(unsafe.Pointer(h))
 
 	sol := make([]float32, int(rv.length))
 	for i := 0; i < len(sol); i++ {
@@ -219,7 +229,7 @@ func NewPointVectorFromPoints(pts [][]int) PointVector {
 }
 
 func NewPoint2fVectorFromPoints(pts []cv.Point2f) Point2fVector {
-	p := (*C.struct_Point2f)(C.malloc(C.size_t(C.sizeof_struct_Point2f * len(pts))))
+	p := (*C.struct_Point2d)(C.malloc(C.size_t(C.sizeof_struct_Point2d * len(pts))))
 	defer C.free(unsafe.Pointer(p))
 
 	h := &reflect.SliceHeader{
@@ -231,8 +241,8 @@ func NewPoint2fVectorFromPoints(pts []cv.Point2f) Point2fVector {
 
 	for j, point := range pts {
 		pa[j] = C.struct_Point2f{
-			x: C.float(point.X),
-			y: C.float(point.Y),
+			x: C.double(point.X),
+			y: C.double(point.Y),
 		}
 	}
 

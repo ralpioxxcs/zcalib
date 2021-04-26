@@ -107,36 +107,44 @@ func RefineAll(
 
 	logger.Infof("refined_p : %v", refined_p)
 
-	// Decompose vector to matrix form
+	// Decompose serialized vector to each matrix form
 	return (func(p []float32) (cv.Mat, []cv.Mat, float32, float32) {
-		//logger.Debugf("p size : %v", len(p))
 
-		//// Intrinsic parameter ( 0 ~ 4 )
-		//K := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
-		//  p[0], p[2], p[3],
-		//  0, p[1], p[3],
-		//  0, 0, 1,
-		//})
-		//// Distortion coefficients (5,6)
-		//k1 := p[5]
-		//k2 := p[6]
+		// Intrinsic parameter ( 0 ~ 4 )
+		fx := p[0]
+		fy := p[1]
+		skew := p[2]
+		cx := p[3]
+		cy := p[4]
+		K := NewMatWithSizeNElem(3, 3, cv.MatTypeCV32F, []float32{
+			fx, skew, cx,
+			0, fy, cy,
+			0, 0, 1,
+		})
+		// Distortion coefficients (5,6)
+		k1 := p[5]
+		k2 := p[6]
 
-		//curIdx := 6
-		//// Extrinsic paramater
-		//t_data, r_data := make([]float32, len(extrinsics)), make([]float32, len(extrinsics))
-		//for i, e := range extrinsics {
-		//  t_data[i] = []float32{p[curIdx+i], p[curIdx+i+1], p[curIdx+i+2]}
-		//  r_data[i] = []float32{p[curIdx+i+3], p[curIdx+i+4], p[curIdx+i+5]}
+		curIdx := 7
+		// Extrinsic paramater
+		refined_extrinsics := make([]cv.Mat, len(extrinsics))
+		t_data, r_data := make([][]float32, len(extrinsics)), make([][]float32, len(extrinsics))
+		for i := 0; i < len(refined_extrinsics); i++ {
 
-		//  R := toRodrigues(NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, r_data))
-		//  t := NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, t_data)
+			for j := 0; j < 6; j++ {
+				t_data[i] = []float32{p[curIdx+j], p[curIdx+j+1], p[curIdx+j+2]}
+				r_data[i] = []float32{p[curIdx+j+3], p[curIdx+j+4], p[curIdx+j+5]}
+			}
+			curIdx += 1
 
-		//  //E := cv.NewMat()
-		//  //cv.Hconcat(R, t, &E)
-		//  // extrinsics[i] = E
+			R := toRodrigues31to33(r_data[i])
+			logger.Infof("Rodrigues R : \n%v", printFormattedMat(R))
+			t := NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, t_data[i])
+			E := cv.NewMatWithSize(3, 4, cv.MatTypeCV32F)
+			cv.Hconcat(R, t, &E)
+			refined_extrinsics[i] = E
+		}
 
-		//}
-
-		return cv.NewMat(), []cv.Mat{}, 1, 2
+		return K, refined_extrinsics, k1, k2
 	}(refined_p))
 }

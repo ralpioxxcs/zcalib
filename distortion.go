@@ -44,10 +44,6 @@ func estimateLensDistortion(
 			rad := math.Sqrt(float64((npPt.X * npPt.X) + (npPt.Y * npPt.Y)))
 			projected := projection_simple(t, K, extrinsics[i])
 
-			logger.Debugf("npPt : %v,%v", npPt.X, npPt.Y)
-			logger.Debugf("rad : %v", rad)
-			logger.Debugf("projected : %v,%v", projected.X, projected.Y)
-
 			Du0 := (projected.X - uc) * (float32(math.Pow(rad, 2)))
 			Du1 := (projected.X - uc) * (float32(math.Pow(rad, 4)))
 			Dv0 := (projected.Y - vc) * (float32(math.Pow(rad, 2)))
@@ -71,8 +67,6 @@ func estimateLensDistortion(
 
 	// 2x(2mn) * (2mn)x1 = 2x1
 	k := pInv.MultiplyMatrix(d)
-
-	logger.Debugf("k : \n%v", printFormattedMat(k))
 
 	return k.GetFloatAt(0, 0), k.GetFloatAt(0, 1)
 }
