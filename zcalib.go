@@ -116,9 +116,9 @@ func Run(data Data) CalibResults {
 	logger.Infof("refined disotortion coefficients k1,k2 : %v,%v", refk1, refk2)
 
 	return CalibResults{
-		Intrinsic:  K,
-		DistCoeffs: []float32{k1, k2},
+		Intrinsic:  refK,
+		DistCoeffs: []float32{refk1, refk2},
 		Homography: homographies,
-		Extrinsics: extrinsics,
+		Extrinsics: refExtrinsics,
 	}
 }
