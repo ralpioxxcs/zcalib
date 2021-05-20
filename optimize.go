@@ -125,20 +125,16 @@ func RefineAll(
 		k1 := p[5]
 		k2 := p[6]
 
-		curIdx := 7
+		curIdx := 6
 		// Extrinsic paramater
 		refined_extrinsics := make([]cv.Mat, len(extrinsics))
 		t_data, r_data := make([][]float32, len(extrinsics)), make([][]float32, len(extrinsics))
 		for i := 0; i < len(refined_extrinsics); i++ {
-
-			for j := 0; j < 6; j++ {
-				t_data[i] = []float32{p[curIdx+j], p[curIdx+j+1], p[curIdx+j+2]}
-				r_data[i] = []float32{p[curIdx+j+3], p[curIdx+j+4], p[curIdx+j+5]}
-			}
-			curIdx += 1
+			t_data[i] = []float32{p[curIdx+1], p[curIdx+2], p[curIdx+3]}
+			r_data[i] = []float32{p[curIdx+4], p[curIdx+5], p[curIdx+6]}
+			curIdx += 6
 
 			R := toRodrigues31to33(r_data[i])
-			logger.Infof("Rodrigues R : \n%v", printFormattedMat(R))
 			t := NewMatWithSizeNElem(3, 1, cv.MatTypeCV32F, t_data[i])
 			E := cv.NewMatWithSize(3, 4, cv.MatTypeCV32F)
 			cv.Hconcat(R, t, &E)
